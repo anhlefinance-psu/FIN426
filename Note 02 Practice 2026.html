@@ -157,7 +157,7 @@
   <span>Solutions opened <b id="sPeek">0</b></span>
 </div>
 
-<footer>Numbers are randomised, so every attempt is different. Nothing you type leaves this page.</footer>
+<footer>Numbers are randomised, so every attempt is different. Nothing you type leaves this page.<br>Use the &rarr; and &larr; arrow keys to move between questions.</footer>
 
 </div>
 
@@ -2576,10 +2576,16 @@ function markMastered(id){
    templates repeats roughly one press in three, which reads as the button
    being broken. Hold the most recent half of the pool out of the draw. */
 let recentIds = [];
+/* Questions seen this session, so the arrow keys can step back and forth through them. */
+let history = [], histIdx = -1;
+let navKey = false;      // true while an arrow key is doing the rendering
 let order = "shuffle";   // "shuffle" | "seq"
 let seqIdx = 0;
 
-function newQuestion(){
+function newQuestion(replay){
+  let q;
+  if (replay){ q = replay.q; }
+  else {
   const pool = active==="all" ? ALL_TEMPLATES : ALL_TEMPLATES.filter(t=>inTopic(t,active));
   let tpl;
   if (order === "seq"){
@@ -2597,11 +2603,22 @@ function newQuestion(){
     if (recentIds.length > 40) recentIds.length = 40;
     $("seqPos").textContent = "";
   }
-  const q    = tpl.gen();
+  q = tpl.gen();
   q.name = tpl.name;
   q.id   = tpl.id;
+  q.seqPos = $("seqPos").textContent;   // carried so stepping back shows its own position
   if (q.mode !== "choice") q.distractors = usable(q.correct, q.cands, q.sep);
-  current = q; tries = 0; peeked = false; solved = false; tallied = false;
+  }
+  current = q;
+  if (replay){
+    tries = replay.tries; peeked = replay.peeked; solved = replay.solved; tallied = replay.tallied;
+  } else {
+    tries = 0; peeked = false; solved = false; tallied = false;
+    history = history.slice(0, histIdx + 1);           // a new draw discards anything ahead
+    history.push({q, tries:0, peeked:false, solved:false, tallied:false, fb:"", ans:""});
+    if (history.length > 50){ history.shift(); }
+    histIdx = history.length - 1;
+  }
 
   const isChoice = q.mode === "choice";
   $("qmeta").textContent = q.name;
@@ -2632,7 +2649,30 @@ function newQuestion(){
   $("fb").innerHTML = "";
   $("steps").innerHTML = q.steps.map(s=>`<div>${s}</div>`).join("");
   const d = $("soldetails"); d.hidden = false; d.open = false;
-  if (!isChoice) $("ans").focus();
+  if (replay){
+    /* Put the question back exactly as it was left --- the feedback, what was typed, and
+       whether it had already been answered. The tallied/solved flags come back with it,
+       so revisiting a question never re-counts an attempt or re-awards mastery. */
+    $("fb").innerHTML = replay.fb || "";
+    $("ans").value    = replay.ans || "";
+    $("seqPos").textContent = q.seqPos || "";
+    if (isChoice && q.wrong){
+      [...$("opts").children].forEach((b,j)=>{
+        if (q.wrong.indexOf(j) >= 0){ b.classList.add("wrong"); b.disabled = true; }
+      });
+    }
+    if (solved || q.done){
+      if (isChoice){
+        [...$("opts").children].forEach((b,j)=>{ b.disabled = true;
+          if (q.options[j].correct) b.classList.add("right"); });
+      } else { $("ans").disabled = true; $("check").disabled = true; }
+    }
+    d.open = peeked || solved;
+  }
+  /* Arriving by arrow key must not park the cursor in the answer box: a restored answer
+     sitting there would swallow the next arrow press and strand the student. */
+  if (navKey) $("ans").blur();
+  else if (!isChoice && !$("ans").disabled) $("ans").focus();
 }
 
 function parseInput(raw){
@@ -2672,6 +2712,7 @@ function pickOption(k){
     stats.streak = 0;
     btns[k].classList.add("wrong");
     btns[k].disabled = true;
+    (q.wrong || (q.wrong = [])).push(k);   // remembered so a revisit keeps it eliminated
     say("no","Not that one.", o.msg);
   }
   render();
@@ -2746,7 +2787,45 @@ function render(){
 }
 
 $("check").onclick = check;
-$("next").onclick  = newQuestion;
+$("next").onclick  = () => newQuestion();   // arrow fn: never pass the click Event as `replay`
+
+/* ---- arrow keys: right for the next question, left for the previous one -------------
+   Ignored while the answer box is being typed in, where the arrows move the caret, and
+   ignored with a modifier held so the browser's own shortcuts still work.            */
+function snapshotQuestion(){
+  const h = history[histIdx];
+  if (!h) return;
+  h.tries = tries; h.peeked = peeked; h.solved = solved; h.tallied = tallied;
+  h.fb = $("fb").innerHTML; h.ans = $("ans").value;
+}
+function goBack(){
+  if (histIdx <= 0) return;
+  snapshotQuestion(); histIdx--;
+  navKey = true; newQuestion(history[histIdx]); navKey = false;
+}
+function goForward(){
+  snapshotQuestion();
+  navKey = true;
+  if (histIdx < history.length - 1){ histIdx++; newQuestion(history[histIdx]); }
+  else newQuestion();
+  navKey = false;
+}
+document.addEventListener("keydown", e => {
+  if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+  if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+  const t = e.target;
+  if (t && (t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+  /* Inside the answer box the arrows belong to the caret --- but only while it still has
+     somewhere to go. Once it sits at the end you are pressing toward, the press is free,
+     so a half-typed answer never traps a student in the field. */
+  if (t && t.tagName === "INPUT" && !t.disabled){
+    const at = t.selectionStart, to = t.selectionEnd, n = String(t.value).length;
+    if (at === null || at !== to) return;                       // a selection: leave it alone
+    if (e.key === "ArrowRight" ? at < n : at > 0) return;
+  }
+  e.preventDefault();
+  if (e.key === "ArrowRight") goForward(); else goBack();
+});
 $("ans").addEventListener("keydown", e=>{ if(e.key==="Enter" && !$("check").disabled) check(); });
 $("soldetails").addEventListener("toggle", ()=>{
   if ($("soldetails").open && !solved && !peeked){

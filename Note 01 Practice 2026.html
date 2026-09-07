@@ -157,7 +157,7 @@
   <span>Solutions opened <b id="sPeek">0</b></span>
 </div>
 
-<footer>Numbers are randomised, so every attempt is different. Nothing you type leaves this page.</footer>
+<footer>Numbers are randomised, so every attempt is different. Nothing you type leaves this page.<br>Use the &rarr; and &larr; arrow keys to move between questions.</footer>
 
 </div>
 
@@ -381,7 +381,11 @@ const TEMPLATES = [
     let C,apr,k,i;
     do {                                     // deferral must move the answer >2.5%,
       C   = pick(range(25,400,5));           // otherwise "forgot to defer" is
-      apr = pick(range(.07,.18,.0025));      // indistinguishable from the right answer
+      apr = pick(range(.125,.18,.0025));     // indistinguishable from the right answer.
+                                             // Floor is .125 so the monthly rate exceeds 1%:
+                                             // the "anchored a period late" distractor sits
+                                             // exactly i away from the key and is otherwise
+                                             // dropped by usable().
       k   = pick([4,5,6,7,8,9,10,12,13,15,18]); // first cash flow at end of month k
       i   = apr/12;
     } while (Math.pow(1+i,k-1) < 1.025);
@@ -396,7 +400,8 @@ const TEMPLATES = [
       cands:[
         {val:C/i, msg:`That is the price of a perpetuity whose first payment lands at the end of month 1. Yours does not start until month ${k} — ${k-1} extra months of discounting, so divide by (1+i)<sup>${k-1}</sup>.`},
         {val:C/apr, msg:`You used the annual rate. Cash flows are monthly, so the rate must be monthly too: ${pctS(apr)} ÷ 12 = ${pctS(i,4)}.`},
-        {val:(C/i)*Math.pow(1+i,k-1), msg:`You compounded forward instead of discounting back. A payment stream that starts later is worth <em>less</em>, so divide by (1+i)<sup>${k-1}</sup>, do not multiply.`}
+        {val:(C/i)*Math.pow(1+i,k-1), msg:`You compounded forward instead of discounting back. A payment stream that starts later is worth <em>less</em>, so divide by (1+i)<sup>${k-1}</sup>, do not multiply.`},
+        {val:(C/i)/Math.pow(1+i,k), msg:`You discounted ${k} periods instead of ${k-1}. The formula C/i already values the stream <em>one period before</em> its first payment &mdash; so with the first payment at the end of month ${k}, C/i sits at month ${k-1}, and only ${k-1} months of discounting remain.`}
       ],
       steps:[
         `Monthly rate i = ${pctS(apr)} / 12 = ${pctS(i,4)}`,
@@ -453,8 +458,7 @@ const TEMPLATES = [
     return {
       unit:"money", sep:0.006, tol:0.0015,
       text:`A bank account earns <b>${pctS(apr)} p.a. compounded monthly</b>. You want it to pay
-            you <b>${money(X)}</b> every <b>${k} months</b> forever, without ever touching the
-            principal. The first payment comes ${when}.`,
+            you <b>${money(X)}</b> every <b>${k} months</b> forever. The first payment comes ${when}.`,
       ask:"How much do you need to deposit today?",
       correct,
       cands:[
@@ -816,7 +820,7 @@ const TEMPLATES = [
       cands:[
         {val:P/r, msg:`You used the perpetuity formula in the wrong direction. P = C/r values a known payment; here the value is known and the payment is not, so C = P &times; r.`},
         {val:P*r/12, msg:`That is a monthly figure. The rate is per year, so ${pctS(r)} of ${money(P)} is what can be drawn each <em>year</em>.`},
-        {val:P/(1+r), msg:`That discounts the capital by a year, which is not what is being asked. The payout is the interest the fund throws off: ${money(P)} &times; ${pctS(r)}.`},
+        {val:P/(1+r), msg:`That discounts the capital by a year, which is not what is being asked. The payout is the interest the fund earns: ${money(P)} &times; ${pctS(r)}.`},
         {val:P*(1+r), msg:`That is the fund's balance after one year. Spending it would exhaust the capital, and the endowment has to last forever.`}
       ],
       steps:[
@@ -1211,9 +1215,14 @@ const CHOICE_TEMPLATES = [
       fault==="periods"
         ? `<b>Step 3.</b> Number of periods = ${n}`
         : `<b>Step 3.</b> Number of periods = ${T} &times; 2 = ${n}`,
+      /* Step 4 refers to Steps 1-3 symbolically instead of reprinting their figures.
+         Reprinting them showed a planted coupon/rate/period error a SECOND time, so a
+         reader could defensibly point here rather than at the step that introduced it
+         - all three blind readers did exactly that on 24 Aug 2026. The "face" fault
+         still has to be legible in this step, hence the two branches.               */
       fault==="face"
-        ? `<b>Step 4.</b> Price = ${money(cpn)}/(1+${i.toFixed(4)}) + &hellip; + ${money(cpn)}/(1+${i.toFixed(4)})<sup>${n}</sup> + ${money(F)}`
-        : `<b>Step 4.</b> Price = ${money(cpn)}/(1+${i.toFixed(4)}) + &hellip; + (${money(cpn)} + ${money(F)})/(1+${i.toFixed(4)})<sup>${n}</sup>`
+        ? `<b>Step 4.</b> Price = C/(1+i) + &hellip; + C/(1+i)<sup>n</sup> + ${money(F)} &nbsp;&mdash;&nbsp; taking C, i and n from Steps 1&ndash;3`
+        : `<b>Step 4.</b> Price = C/(1+i) + &hellip; + (C + ${money(F)})/(1+i)<sup>n</sup> &nbsp;&mdash;&nbsp; taking C, i and n from Steps 1&ndash;3`
     ];
     const fine = [
       `Step 1 is fine &mdash; the annual coupon rate is halved to get the semiannual payment.`,
@@ -1298,13 +1307,13 @@ const CHOICE_TEMPLATES = [
         : fault==="due"
         ? `<b>Step 2.</b> PV = (C/r) &times; (1 &minus; 1/(1+r)<sup>n</sup>) &times; (1+r)`
         : `<b>Step 2.</b> PV = (C/r) &times; (1 &minus; 1/(1+r)<sup>n</sup>)`,
+      /* Step 3 substitutes into whatever Step 2 wrote rather than reprinting it. The
+         old version spelled the corrupted formula out a second time, so all three blind
+         readers could point at Step 3 as defensibly as at Step 2. Only the "nodisc"
+         fault is genuinely introduced here, so that branch keeps its own arithmetic. */
       fault==="nodisc"
         ? `<b>Step 3.</b> PV = ${money(C)} &times; ${n} = ${money(C*n)}`
-        : fault==="perp"
-        ? `<b>Step 3.</b> PV = ${money(C)} / ${r} = ${money(val)}`
-        : fault==="due"
-        ? `<b>Step 3.</b> PV = (${money(C)} / ${r}) &times; (1 &minus; 1/(1+${r})<sup>${n}</sup>) &times; (1+${r}) = ${money(val)}`
-        : `<b>Step 3.</b> PV = (${money(C)} / ${r}) &times; (1 &minus; 1/(1+${r})<sup>${n}</sup>) = ${money(val)}`
+        : `<b>Step 3.</b> Substituting C = ${money(C)}, r = ${r} and n = ${n} into the formula above: PV = ${money(val)}`
     ];
     const fine = [
       `Step 1 is fine &mdash; equal payments over a fixed number of periods is exactly an ordinary annuity.`,
@@ -1392,7 +1401,9 @@ const CHOICE_TEMPLATES = [
       fault==="simple"
         ? `<b>Step 2.</b> Rate earned over ${k} months = ${k} &times; ${pctS(im,4)} = ${pctS(ik,4)}`
         : `<b>Step 2.</b> Rate earned over ${k} months = (1 + ${im.toFixed(6)})<sup>${k}</sup> &minus; 1 = ${pctS(ik,4)}`,
-      `<b>Step 3.</b> Deposit needed = ${money(X)} / ${ik.toFixed(6)} = ${money(dep)}`
+      /* refers back to Step 2's rate instead of reprinting it - the reprint showed a
+         planted Step 1 or Step 2 error twice. */
+      `<b>Step 3.</b> Deposit needed = ${money(X)} &divide; (the rate from Step 2) = ${money(dep)}`
     ];
     const fine = [
       `Step 1 is fine &mdash; the account compounds monthly, so the monthly rate is the annual rate over 12.`,
@@ -1483,7 +1494,7 @@ const CHOICE_TEMPLATES = [
       ask:"What happens to the price?",
       options: shuffle([
         {html:`It ${up ? "falls" : "rises"}`, correct:true,
-         msg:`Right. P = C/r, so r sits in the denominator: ${money(C)}/${(up?r0:r1)} = ${money(hi)} becomes ${money(C)}/${(up?r1:r0)} = ${money(lo)}. ${up ? "A higher rate means you need less money on deposit to throw off the same payment." : "A lower rate means you need more principal to generate the same payment."}`},
+         msg:`Right. P = C/r, so r sits in the denominator: ${money(C)}/${(up?r0:r1)} = ${money(hi)} becomes ${money(C)}/${(up?r1:r0)} = ${money(lo)}. ${up ? "A higher rate means you need less money on deposit to generate the same payment." : "A lower rate means you need more principal to generate the same payment."}`},
         {html:`It ${up ? "rises" : "falls"}`, correct:false,
          msg:`The other way. Think of it as a bank balance: at ${pctS(up?r1:r0)} you need ${money(lo)} on deposit to earn ${money(C)} a year, but at ${pctS(up?r0:r1)} you need ${money(hi)}. Rate and price move in opposite directions.`},
         {html:`It is unchanged — the payment did not change`, correct:false,
@@ -1560,19 +1571,24 @@ const CHOICE_TEMPLATES = [
   }},
 
 { id:"d6", topic:"concept", name:"What is missing?", gen(){
-    const A = pick(range(700,1200,50)), B = Math.round(A*pick([0.52,0.54,0.56])/5)*5;
+    /* 2B must sit BELOW A or there is no crossover: PV(two) - PV(one), scaled by
+       (1+r), is B(1+r)^0.5 + (B - A) — it starts at 2B - A and rises with r. The old
+       multipliers (0.52-0.56) put 2B above A, so the two-payment option was dearer at
+       EVERY rate and the keyed answer was false on all 33 combinations. At 0.49-0.495
+       the ranking flips somewhere between about 3.4% and 10.5%.                     */
+    const A = pick(range(700,1200,50)), B = Math.round(A*pick([0.49,0.4925,0.495])/5)*5;
     return {
       mode:"choice",
       text:`A dealer offers two ways to pay: <b>${money(A)} in one year's time</b>, or
             <b>${money(B)} in six months and another ${money(B)} in twelve months</b>.
             A classmate says the second option is obviously cheaper because
-            ${money(2*B)} spread out beats ${money(A)} up front.`,
+            ${money(2*B)} in total is less than ${money(A)}.`,
       ask:"What is wrong with that reasoning?",
       options: shuffle([
         {html:`You cannot rank them without knowing the interest rate`, correct:true,
-         msg:`Right — and this is the reflex the whole note is built around. The ranking genuinely reverses depending on the rate: at a low rate one option wins, at a high rate the other does. The first question is always "what is the interest rate?"`},
-        {html:`Nothing — ${money(2*B)} is more than ${money(A)}, so the second option costs more`, correct:false,
-         msg:`Adding ${money(B)} + ${money(B)} treats payments at six and twelve months as if they arrived at the same moment. They do not, so the sum is meaningless until both are discounted to today.`},
+         msg:`Right — and this is the reflex the whole note is built around. The ranking genuinely reverses: the two-payment option has the smaller total, which wins at a low rate, but its money leaves your hands <em>earlier</em>, which costs more as the rate rises. Somewhere between, they cross. The first question is always "what is the interest rate?"`},
+        {html:`Nothing — ${money(2*B)} is less than ${money(A)}, so the second option is cheaper`, correct:false,
+         msg:`Adding ${money(B)} + ${money(B)} treats payments at six and twelve months as if they arrived at the same moment. They do not, so the sum is meaningless until both are discounted to today — and the second option's money leaves <em>earlier</em>, which works against it.`},
         {html:`The second option is cheaper because paying later is always better`, correct:false,
          msg:`Paying later is better, but that is not what settles it here — one of those payments comes <em>earlier</em> than the single payment. Which option wins depends on the rate.`},
         {html:`The first option is cheaper because it is a single payment`, correct:false,
@@ -1581,7 +1597,7 @@ const CHOICE_TEMPLATES = [
       steps:[
         `Cash flows at different dates cannot be added or compared directly.`,
         `Discount both options to today, then compare like with like.`,
-        `The ranking depends on the rate: at a low rate the single later payment looks cheap; at a high rate it looks cheapest of all, because waiting is worth more.`,
+        `${money(2*B)} in two instalments is less in total than ${money(A)}, but it leaves your hands earlier. Which effect wins depends entirely on the rate.`,
         `"What is the interest rate?" is the correct first response to any question of this shape.`
       ]};
   }}
@@ -1642,7 +1658,7 @@ const CHOICE_TEMPLATES = [
     ];
     const fine = [
       `Step 1 is fine &mdash; an APR is nominal, so dividing by 12 gives the monthly rate.`,
-      `Step 2 is fine &mdash; that is the correct effective annual rate for this quote.`,
+      `Step 2 is fine &mdash; that is the correct effective annual rate for this quote. Working it out is never an error in itself; what matters is what you then apply it to.`,
       `Step 3 is fine &mdash; ${n} months of payments is exactly what the loan calls for.`,
       `Step 4 is fine &mdash; the payments are discounted one by one at the stated rate.`
     ];
@@ -1652,7 +1668,7 @@ const CHOICE_TEMPLATES = [
       mode:"choice",
       text:`A loan is quoted at an <b>APR of ${pctS(apr)} compounded monthly</b> and calls for
             <b>${n} monthly payments</b> of <b>${money(C)}</b>. A student values the payments:`,
-      ask:"Which step is wrong?",
+      ask:"Every step below is arithmetically correct. Which one is nevertheless wrong?",
       options: s.map((html,k)=>({html, correct:k===at, msg: k===at ? why : fine[k]})),
       steps:[
         `Monthly rate = ${pctS(apr)} / 12 = ${pctS(per,4)}`,
@@ -1928,10 +1944,16 @@ function markMastered(id){
    templates repeats roughly one press in three, which reads as the button
    being broken. Hold the most recent half of the pool out of the draw. */
 let recentIds = [];
+/* Questions seen this session, so the arrow keys can step back and forth through them. */
+let history = [], histIdx = -1;
+let navKey = false;      // true while an arrow key is doing the rendering
 let order = "shuffle";   // "shuffle" | "seq"
 let seqIdx = 0;
 
-function newQuestion(){
+function newQuestion(replay){
+  let q;
+  if (replay){ q = replay.q; }
+  else {
   const pool = active==="all" ? ALL_TEMPLATES : ALL_TEMPLATES.filter(t=>inTopic(t,active));
   let tpl;
   if (order === "seq"){
@@ -1949,11 +1971,22 @@ function newQuestion(){
     if (recentIds.length > 40) recentIds.length = 40;
     $("seqPos").textContent = "";
   }
-  const q    = tpl.gen();
+  q = tpl.gen();
   q.name = tpl.name;
   q.id   = tpl.id;
+  q.seqPos = $("seqPos").textContent;   // carried so stepping back shows its own position
   if (q.mode !== "choice") q.distractors = usable(q.correct, q.cands, q.sep);
-  current = q; tries = 0; peeked = false; solved = false; tallied = false;
+  }
+  current = q;
+  if (replay){
+    tries = replay.tries; peeked = replay.peeked; solved = replay.solved; tallied = replay.tallied;
+  } else {
+    tries = 0; peeked = false; solved = false; tallied = false;
+    history = history.slice(0, histIdx + 1);           // a new draw discards anything ahead
+    history.push({q, tries:0, peeked:false, solved:false, tallied:false, fb:"", ans:""});
+    if (history.length > 50){ history.shift(); }
+    histIdx = history.length - 1;
+  }
 
   const isChoice = q.mode === "choice";
   $("qmeta").textContent = q.name;
@@ -1984,7 +2017,30 @@ function newQuestion(){
   $("fb").innerHTML = "";
   $("steps").innerHTML = q.steps.map(s=>`<div>${s}</div>`).join("");
   const d = $("soldetails"); d.hidden = false; d.open = false;
-  if (!isChoice) $("ans").focus();
+  if (replay){
+    /* Put the question back exactly as it was left --- the feedback, what was typed, and
+       whether it had already been answered. The tallied/solved flags come back with it,
+       so revisiting a question never re-counts an attempt or re-awards mastery. */
+    $("fb").innerHTML = replay.fb || "";
+    $("ans").value    = replay.ans || "";
+    $("seqPos").textContent = q.seqPos || "";
+    if (isChoice && q.wrong){
+      [...$("opts").children].forEach((b,j)=>{
+        if (q.wrong.indexOf(j) >= 0){ b.classList.add("wrong"); b.disabled = true; }
+      });
+    }
+    if (solved || q.done){
+      if (isChoice){
+        [...$("opts").children].forEach((b,j)=>{ b.disabled = true;
+          if (q.options[j].correct) b.classList.add("right"); });
+      } else { $("ans").disabled = true; $("check").disabled = true; }
+    }
+    d.open = peeked || solved;
+  }
+  /* Arriving by arrow key must not park the cursor in the answer box: a restored answer
+     sitting there would swallow the next arrow press and strand the student. */
+  if (navKey) $("ans").blur();
+  else if (!isChoice && !$("ans").disabled) $("ans").focus();
 }
 
 function parseInput(raw){
@@ -2024,6 +2080,7 @@ function pickOption(k){
     stats.streak = 0;
     btns[k].classList.add("wrong");
     btns[k].disabled = true;
+    (q.wrong || (q.wrong = [])).push(k);   // remembered so a revisit keeps it eliminated
     say("no","Not that one.", o.msg);
   }
   render();
@@ -2098,7 +2155,45 @@ function render(){
 }
 
 $("check").onclick = check;
-$("next").onclick  = newQuestion;
+$("next").onclick  = () => newQuestion();   // arrow fn: never pass the click Event as `replay`
+
+/* ---- arrow keys: right for the next question, left for the previous one -------------
+   Ignored while the answer box is being typed in, where the arrows move the caret, and
+   ignored with a modifier held so the browser's own shortcuts still work.            */
+function snapshotQuestion(){
+  const h = history[histIdx];
+  if (!h) return;
+  h.tries = tries; h.peeked = peeked; h.solved = solved; h.tallied = tallied;
+  h.fb = $("fb").innerHTML; h.ans = $("ans").value;
+}
+function goBack(){
+  if (histIdx <= 0) return;
+  snapshotQuestion(); histIdx--;
+  navKey = true; newQuestion(history[histIdx]); navKey = false;
+}
+function goForward(){
+  snapshotQuestion();
+  navKey = true;
+  if (histIdx < history.length - 1){ histIdx++; newQuestion(history[histIdx]); }
+  else newQuestion();
+  navKey = false;
+}
+document.addEventListener("keydown", e => {
+  if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+  if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+  const t = e.target;
+  if (t && (t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+  /* Inside the answer box the arrows belong to the caret --- but only while it still has
+     somewhere to go. Once it sits at the end you are pressing toward, the press is free,
+     so a half-typed answer never traps a student in the field. */
+  if (t && t.tagName === "INPUT" && !t.disabled){
+    const at = t.selectionStart, to = t.selectionEnd, n = String(t.value).length;
+    if (at === null || at !== to) return;                       // a selection: leave it alone
+    if (e.key === "ArrowRight" ? at < n : at > 0) return;
+  }
+  e.preventDefault();
+  if (e.key === "ArrowRight") goForward(); else goBack();
+});
 $("ans").addEventListener("keydown", e=>{ if(e.key==="Enter" && !$("check").disabled) check(); });
 $("soldetails").addEventListener("toggle", ()=>{
   if ($("soldetails").open && !solved && !peeked){

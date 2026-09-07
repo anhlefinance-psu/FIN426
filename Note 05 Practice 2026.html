@@ -1,0 +1,1335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repos — Practice</title>
+<style>
+  :root{
+    --bg:#ffffff; --fg:#1a1a1a; --muted:#5f6672; --line:#e2e5ea;
+    --card:#f7f8fa; --accent:#00205b; --accent-fg:#ffffff;
+    --ok-bg:#e8f5ec; --ok-line:#2e7d47; --ok-fg:#17532c;
+    --no-bg:#fdeceb; --no-line:#c0392b; --no-fg:#8e2b20;
+    --hint-bg:#fff8e6; --hint-line:#b8860b; --hint-fg:#6b4e00;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#14161a; --fg:#e8eaed; --muted:#9aa3af; --line:#2b2f36;
+      --card:#1b1e24; --accent:#7f9cd4; --accent-fg:#0d1015;
+      --ok-bg:#132a1c; --ok-line:#4caf70; --ok-fg:#9fdcb4;
+      --no-bg:#2c1614; --no-line:#e06c5d; --no-fg:#f0a99f;
+      --hint-bg:#2a2313; --hint-line:#d4a017; --hint-fg:#e5c976;
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:0; background:var(--bg); color:var(--fg);
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  .wrap{max-width:760px; margin:0 auto; padding:24px 18px 64px}
+  header{border-bottom:1px solid var(--line); padding-bottom:14px; margin-bottom:20px}
+  h1{font-size:1.35rem; margin:0 0 4px}
+  .sub{color:var(--muted); font-size:.9rem}
+  .topics{display:flex; flex-wrap:wrap; gap:7px; margin:18px 0}
+  .chip{
+    border:1px solid var(--line); background:var(--card); color:var(--fg);
+    padding:6px 12px; border-radius:999px; cursor:pointer; font-size:.85rem;
+    font-family:inherit;
+  }
+  .chip[aria-pressed="true"]{background:var(--accent); color:var(--accent-fg); border-color:var(--accent)}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:10px;
+    padding:20px; margin-bottom:16px;
+  }
+  .qmeta{font-size:.75rem; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-bottom:10px}
+  .qtext{font-size:1.05rem; margin-bottom:6px}
+  .qtext b{font-variant-numeric:tabular-nums}
+  .ask{margin-top:14px; font-weight:600}
+  .row{display:flex; gap:9px; margin-top:14px; flex-wrap:wrap}
+  input[type=text]{
+    flex:1 1 190px; min-width:0; padding:11px 13px; font-size:1rem; font-family:inherit;
+    border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--fg);
+  }
+  input[type=text]:focus{outline:2px solid var(--accent); outline-offset:1px}
+  button{
+    padding:11px 17px; font-size:.95rem; font-family:inherit; border-radius:8px;
+    border:1px solid var(--accent); background:var(--accent); color:var(--accent-fg);
+    cursor:pointer; font-weight:600;
+  }
+  button.ghost{background:transparent; color:var(--fg); border-color:var(--line); font-weight:500}
+  button:disabled{opacity:.45; cursor:default}
+  .fb{border-radius:8px; padding:13px 15px; margin-top:15px; border-left:4px solid; font-size:.95rem}
+  .fb.ok{background:var(--ok-bg); border-color:var(--ok-line); color:var(--ok-fg)}
+  .fb.no{background:var(--no-bg); border-color:var(--no-line); color:var(--no-fg)}
+  .fb.hint{background:var(--hint-bg); border-color:var(--hint-line); color:var(--hint-fg)}
+  .fb strong{display:block; margin-bottom:3px}
+  details{margin-top:15px; border-top:1px solid var(--line); padding-top:13px}
+  summary{cursor:pointer; font-size:.9rem; color:var(--muted); font-weight:600}
+  .steps{margin-top:11px; font-size:.92rem}
+  .steps div{padding:5px 0; border-bottom:1px dashed var(--line)}
+  .steps div:last-child{border-bottom:none; font-weight:600}
+  code{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.88em;
+    background:var(--bg); padding:1px 5px; border-radius:4px; border:1px solid var(--line);
+  }
+  .opts{display:flex; flex-direction:column; gap:8px; margin-top:14px}
+  .opt{
+    text-align:left; padding:11px 14px; border:1px solid var(--line); background:var(--bg);
+    color:var(--fg); border-radius:8px; cursor:pointer; font-family:inherit;
+    font-size:.95rem; font-weight:400; line-height:1.55;
+  }
+  .opt:hover:not(:disabled){border-color:var(--accent)}
+  .opt.right{background:var(--ok-bg); border-color:var(--ok-line); border-width:2px}
+  .opt.wrong{background:var(--no-bg); border-color:var(--no-line)}
+  .opt:disabled{cursor:default}
+  .opt sup{font-size:.75em}
+  .stats{display:flex; gap:22px; font-size:.86rem; color:var(--muted); margin-top:22px;
+         border-top:1px solid var(--line); padding-top:14px; flex-wrap:wrap}
+  .stats b{color:var(--fg); font-variant-numeric:tabular-nums}
+  footer{margin-top:26px; font-size:.78rem; color:var(--muted); text-align:center}
+  /* The hidden attribute's UA rule is only [hidden]{display:none}, which loses
+     to author rules like .opts{display:flex} and .row{display:flex}. Without
+     this, hiding those panels silently does nothing. */
+  .modes{display:flex; gap:8px; align-items:center; margin-top:10px;
+         font-size:.84rem; color:var(--muted); flex-wrap:wrap}
+  .modes .chip{font-size:.84rem; padding:5px 12px}
+  .prog{margin-top:18px}
+  .progtop{display:flex; justify-content:space-between; align-items:baseline;
+           font-size:.86rem; color:var(--muted); margin-bottom:6px}
+  .progtop b{color:var(--fg); font-variant-numeric:tabular-nums}
+  .progbar{height:9px; border-radius:999px; background:var(--line); overflow:hidden}
+  .progfill{height:100%; width:0%; border-radius:999px; background:var(--accent);
+            transition:width .35s ease}
+  .progreset{background:none; border:none; color:var(--muted); font-size:.8rem;
+             padding:0; cursor:pointer; text-decoration:underline; font-weight:400}
+  .progreset:hover{color:var(--fg)}
+  [hidden]{display:none !important}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Repos — Practice</h1>
+  <div class="sub">Companion drills for Note 05 · Professor Anh Le</div>
+</header>
+
+<div class="topics" id="topics" role="group" aria-label="Choose topics"></div>
+
+<div class="modes" id="modes" role="group" aria-label="Question order">
+  <span>Order</span>
+  <button class="chip" id="mShuffle" type="button" aria-pressed="true">Shuffle</button>
+  <button class="chip" id="mSeq" type="button" aria-pressed="false">In order</button>
+  <span id="seqPos"></span>
+</div>
+
+<div class="card" id="card">
+  <div class="qmeta" id="qmeta">—</div>
+  <div class="qtext" id="qtext">Loading…</div>
+  <div class="ask" id="qask"></div>
+  <div class="opts" id="opts" hidden></div>
+  <div class="row" id="inputrow">
+    <input type="text" id="ans" autocomplete="off" inputmode="decimal"
+           placeholder="Your answer" aria-label="Your answer">
+    <button id="check">Check</button>
+    <button id="next" class="ghost">New question</button>
+  </div>
+  <div id="fb"></div>
+  <details id="soldetails" hidden>
+    <summary>Show the worked solution</summary>
+    <div class="steps" id="steps"></div>
+  </details>
+</div>
+
+<div class="prog">
+  <div class="progtop">
+    <span>Templates solved unaided <b id="pDone">0</b> of <b id="pTotal">0</b></span>
+    <button class="progreset" id="pReset" type="button">reset</button>
+  </div>
+  <div class="progbar"><div class="progfill" id="progfill"></div></div>
+</div>
+
+<div class="stats">
+  <span>Attempted <b id="sAtt">0</b></span>
+  <span>Correct first try <b id="sFirst">0</b></span>
+  <span>Accuracy <b id="sAcc">—</b></span>
+  <span>Streak <b id="sStreak">0</b></span>
+  <span>Solutions opened <b id="sPeek">0</b></span>
+</div>
+
+<footer>Numbers are randomised, so every attempt is different. Nothing you type leaves this page.<br>Use the &rarr; and &larr; arrow keys to move between questions.</footer>
+
+</div>
+
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ utils */
+const pick = a => a[Math.floor(Math.random()*a.length)];
+/* stepped range, e.g. range(0.04,0.24,0.0025) -> 81 rates instead of a list of 6 */
+const range = (lo,hi,step) => {
+  const out=[]; for(let v=lo; v<=hi+1e-9; v+=step) out.push(Number(v.toFixed(8)));
+  return out;
+};
+const ORD = n => n + (["th","st","nd","rd"][(n%100-n%10!=10)*(n%10<4)*(n%10)]||"th");
+const money = v => "$" + v.toLocaleString("en-US",{minimumFractionDigits:2, maximumFractionDigits:2});
+const pct   = (v,d=4) => (v*100).toFixed(d).replace(/\.?0+$/,"") + "%";
+const pctS  = (v,d=2) => (v*100).toFixed(d) + "%";
+const REL_SEP  = 0.01;    // distractors must sit >1% from everything else
+const REL_MATCH= 0.0025;  // student answer counts as a match within 0.25%
+
+const near = (a,b,tol) =>
+  Number.isFinite(a) && Number.isFinite(b) &&
+  Math.abs(a-b) / Math.max(Math.abs(a), Math.abs(b), 1e-12) < tol;
+
+/* Drop distractors too close to the answer (or to each other) to diagnose.
+   Templates about small effects (perpetuity timing) pass a tighter `sep`. */
+function usable(correct, cands, sep){
+  const s = sep || REL_SEP;
+  const kept = [];
+  for (const c of cands){
+    if (!Number.isFinite(c.val)) continue;
+    if (near(c.val, correct, s)) continue;
+    if (kept.some(k => near(k.val, c.val, s))) continue;
+    kept.push(c);
+  }
+  return kept;
+}
+
+/* ------------------------------------------------------------- templates */
+
+/* ------------------------------------------------------------ Note 05 ---
+   Repos.  Money-market conventions: actual/360 throughout.                 */
+const billPrice = (F,days,disc) => F*(1 - days/360*disc);
+const repoOwed  = (P,days,rate) => P*(1 + days/360*rate);
+const daysList  = [1,7,14,30,60,90];
+
+const TEMPLATES = [{ id:"p1", topic:"mechanics", name:"Repo interest over the term", gen(){
+    const P = pick([1000,10000,100000,1000000,5000000]);
+    const days = pick(daysList);
+    const r = pick(range(.02,.075,.00125));
+    const correct = P*(days/360)*r;
+    return {
+      unit:"money",
+      text:`You repo out a security and receive <b>${money(P)}</b> in cash for
+            <b>${days} day${days===1?"":"s"}</b> at a repo rate of <b>${pctS(r,3)} p.a.</b>`,
+      ask:"How much interest do you owe when you buy the security back?",
+      correct,
+      cands:[
+        {val:P*r, msg:`That is a full year of interest. The loan runs ${days} days, so scale by ${days}/360.`},
+        {val:P*(days/365)*r, msg:`You used a 365-day year. The money market counts actual days over a <b>360</b>-day year, so the fraction is ${days}/360.`},
+        {val:P*(1+days/360*r), msg:`That is the total repurchase amount &mdash; principal plus interest. The question asks for the interest alone.`},
+        {val:P*(days/360)*r/2, msg:`You halved it. There is no semiannual convention here; repo interest is simple, actual/360.`}
+      ],
+      steps:[
+        `Day-count fraction = ${days}/360 = ${(days/360).toFixed(6)}`,
+        `Interest = ${money(P)} &times; ${(days/360).toFixed(6)} &times; ${pctS(r,3)}`,
+        `= ${money(correct)}`
+      ]};
+  }},
+
+{ id:"p2", topic:"mechanics", name:"The repurchase price", gen(){
+    const P = pick([500000,1000000,25000000,98750000]);
+    const days = pick(daysList);
+    const r = pick(range(.02,.07,.00125));
+    const correct = repoOwed(P,days,r);
+    return {
+      unit:"money",
+      text:`You borrow <b>${money(P)}</b> in a <b>${days}-day</b> repo at
+            <b>${pctS(r,3)} p.a.</b>`,
+      ask:"What do you pay to repurchase the security at the end?",
+      correct,
+      cands:[
+        {val:P, msg:`That is the cash you received. You also owe interest for the ${days} days.`},
+        {val:P*(days/360)*r, msg:`That is the interest alone. The repurchase price is principal <em>plus</em> interest.`},
+        {val:P*(1+r), msg:`That is a full year of interest. The term is ${days} days.`},
+        {val:P*(1-days/360*r), msg:`You subtracted the interest. You are the borrower here &mdash; you pay back more than you received, not less.`}
+      ],
+      steps:[
+        `Interest = ${money(P)} &times; ${days}/360 &times; ${pctS(r,3)} = ${money(P*(days/360)*r)}`,
+        `Repurchase price = ${money(P)} + ${money(P*(days/360)*r)}`,
+        `= ${money(correct)}`
+      ]};
+  }},
+
+
+{ id:"h1", topic:"haircut", name:"How much cash a haircut leaves you", gen(){
+    const V = pick([10000000,50000000,100000000,250000000]);
+    const h = pick([.01,.015,.02,.025,.03,.04,.05]);
+    const correct = V*(1-h);
+    return {
+      unit:"money",
+      text:`Your collateral is worth <b>${money(V)}</b> and the lender applies a
+            <b>${pctS(h,1)}</b> haircut.`,
+      ask:"How much cash will they lend you?",
+      correct,
+      cands:[
+        {val:V, msg:`The whole point of a haircut is that they will <em>not</em> lend the full value. They keep ${pctS(h,1)} back as their cushion.`},
+        {val:V*h, msg:`That is the haircut itself &mdash; the part they hold back. They lend the rest.`},
+        {val:V*(1+h), msg:`Wrong direction. A haircut reduces what you can borrow against the collateral.`},
+        {val:V/(1+h), msg:`Close in spirit but not the convention. The haircut is applied as a straight percentage of the collateral's value: ${money(V)} &times; (1 &minus; ${pctS(h,1)}).`}
+      ],
+      steps:[
+        `Haircut = ${pctS(h,1)} &times; ${money(V)} = ${money(V*h)}`,
+        `Cash advanced = ${money(V)} &minus; ${money(V*h)} = ${money(correct)}`,
+        `That ${money(V*h)} is the lender's cushion if you fail and they are left holding the collateral.`
+      ]};
+  }},
+
+{ id:"h2", topic:"haircut", also:["leverage"], name:"Leverage from a haircut", gen(){
+    const h = pick([.01,.02,.025,.03,.04,.05,.08,.10]);
+    const cap = pick([1000000,2000000,5000000,10000000]);
+    const correct = cap/h;
+    return {
+      unit:"money",
+      text:`You have <b>${money(cap)}</b> of your own capital, and the repo market will fund
+            your Treasury position at a <b>${pctS(h,1)}</b> haircut.`,
+      ask:"How large a position can you support?",
+      correct,
+      cands:[
+        {val:cap*(1-h), msg:`That is smaller than your own capital. Repo is a financing tool &mdash; it multiplies what you can hold, it does not shrink it.`},
+        {val:cap/(1-h), msg:`Close, but the haircut is the fraction you must fund yourself. Your capital covers the haircut on the whole position: position &times; ${pctS(h,1)} = ${money(cap)}.`},
+        {val:cap*h, msg:`You multiplied by the haircut instead of dividing by it, which makes the position smaller than your capital.`},
+        {val:cap, msg:`That is your capital alone, with no financing at all. The repo lends you the other ${pctS(1-h,1)} of the position.`}
+      ],
+      steps:[
+        `On a position of size X the lender advances ${pctS(1-h,1)} and you must fund ${pctS(h,1)}`,
+        `Your capital is the haircut: X &times; ${pctS(h,1)} = ${money(cap)}`,
+        `X = ${money(cap)} / ${h} = ${money(correct)} &mdash; that is ${(1/h).toFixed(0)} times leverage.`
+      ]};
+  }},
+
+
+{ id:"f1", topic:"finance", name:"Financing a bill purchase: the P&L", gen(){
+    const F = 100000000;
+    const d0 = pick(range(.04,.07,.0025));
+    const days0 = 90;
+    const cost = billPrice(F,days0,d0);
+    const hold = pick([15,30,45]);
+    const repo = pick(range(.03,.055,.00125));
+    const owed = repoOwed(cost,hold,repo);
+    const d1 = d0 - pick(range(.004,.02,.001));
+    const sale = billPrice(F,days0-hold,d1);
+    const correct = sale - owed;
+    return {
+      unit:"money",
+      text:`You buy a <b>${days0}-day</b> T-bill, face <b>${money(F)}</b>, at a discount rate of
+            <b>${pctS(d0,3)} p.a.</b>, financing the whole purchase with a <b>${hold}-day</b> repo at
+            <b>${pctS(repo,3)} p.a.</b> After ${hold} days the bill is quoted at
+            <b>${pctS(d1,3)} p.a.</b> and you sell it.`,
+      ask:"What is your profit?",
+      correct,
+      cands:[
+        {val:sale-cost, msg:`You compared the two prices but never paid for the financing. The repo interest of ${money(owed-cost)} comes out of the gain.`},
+        {val:owed-sale, msg:`Sign reversed. You receive the sale proceeds and pay off the repo, so the profit is proceeds minus what you owe.`},
+        {val:sale, msg:`That is the sale proceeds. Most of it repays the repo.`},
+        {val:sale-cost-cost*(hold/360)*repo*2, msg:`You charged the financing twice. The repo runs once, for ${hold} days.`}
+      ],
+      sep:0.02,
+      steps:[
+        `Purchase price = ${money(F)} &times; (1 &minus; ${days0}/360 &times; ${pctS(d0,3)}) = ${money(cost)}`,
+        `Repo owed after ${hold} days = ${money(cost)} &times; (1 + ${hold}/360 &times; ${pctS(repo,3)}) = ${money(owed)}`,
+        `Bill now has ${days0-hold} days left: sale price = ${money(F)} &times; (1 &minus; ${days0-hold}/360 &times; ${pctS(d1,3)}) = ${money(sale)}`,
+        `Profit = ${money(sale)} &minus; ${money(owed)} = ${money(correct)}`
+      ]};
+  }},
+
+{ id:"f2", topic:"finance", name:"Financing a purchase: the trade goes wrong", gen(){
+    const F = 100000000;
+    const d0 = pick(range(.035,.055,.0025));
+    const days0 = 90;
+    const cost = billPrice(F,days0,d0);
+    const hold = pick([30,45,60]);
+    const repo = pick(range(.03,.05,.00125));
+    const owed = repoOwed(cost,hold,repo);
+    const d1 = d0 + pick(range(.015,.04,.0025));
+    const sale = billPrice(F,days0-hold,d1);
+    const correct = owed - sale;
+    return {
+      unit:"money",
+      text:`A <b>${days0}-day</b> bill, face <b>${money(F)}</b>, is bought at
+            <b>${pctS(d0,3)} p.a.</b> and financed with a <b>${hold}-day</b> repo at
+            <b>${pctS(repo,3)} p.a.</b> Rates then move against you, and after ${hold} days the
+            bill is quoted at <b>${pctS(d1,3)} p.a.</b>`,
+      ask:"How large is the shortfall you must cover out of your own pocket?",
+      correct,
+      cands:[
+        {val:cost-sale, msg:`That is the fall in the bill's price. You also owe ${money(owed-cost)} of repo interest on top of it.`},
+        {val:sale-owed, msg:`Sign reversed &mdash; the question asks how much you are short, which is a positive number here.`},
+        {val:owed, msg:`That is the full amount owed on the repo. The bill's sale proceeds cover most of it.`},
+        {val:owed-cost, msg:`That is the repo interest alone. The bill also lost value.`}
+      ],
+      sep:0.02,
+      steps:[
+        `Purchase price = ${money(cost)}; repo owed after ${hold} days = ${money(owed)}`,
+        `Sale price with ${days0-hold} days left = ${money(sale)}`,
+        `Shortfall = ${money(owed)} &minus; ${money(sale)} = ${money(correct)} &mdash; leverage cuts both ways.`
+      ]};
+  }},
+
+{ id:"s1", topic:"short", name:"Shorting through a reverse repo", gen(){
+    const F = 200000000;
+    const d0 = pick(range(.04,.08,.0025));
+    const days0 = 60;
+    const proceeds = billPrice(F,days0,d0);
+    const hold = pick([7,14,21]);
+    const repo = pick(range(.03,.06,.00125));
+    const owed = repoOwed(proceeds,hold,repo);
+    const d1 = d0 + pick(range(.02,.045,.0025));
+    const buyback = billPrice(F,days0-hold,d1);
+    const correct = owed - buyback;
+    return {
+      unit:"money",
+      text:`You borrow a <b>${days0}-day</b> bill, face <b>${money(F)}</b>, through a <b>reverse
+            repo</b> &mdash; you lend cash for <b>${hold} days</b> at <b>${pctS(repo,3)} p.a.</b> and take
+            the bill as collateral &mdash; and you sell that bill short at a discount rate of
+            <b>${pctS(d0,3)} p.a.</b> The short sale proceeds fund the cash you lent, so they earn
+            that ${pctS(repo,3)} p.a. for the ${hold} days. Rates rise, and after ${hold} days the bill
+            is quoted at <b>${pctS(d1,3)} p.a.</b>, when you buy it back and return it.`,
+      ask:"What is your profit?",
+      correct,
+      cands:[
+        {val:proceeds-buyback, msg:`You left out the interest earned on the cash. Shorting through a reverse repo puts the sale proceeds to work for ${hold} days, earning ${money(owed-proceeds)}.`},
+        {val:buyback-owed, msg:`Sign reversed. Rates rose, so the bill got cheaper &mdash; a short position gains.`},
+        {val:owed, msg:`That is the cash you are holding when you close the trade. Buying the bill back consumes most of it.`},
+        {val:owed-proceeds, msg:`That is the interest on the cash alone. The short position itself also made money as the bill fell.`}
+      ],
+      sep:0.02,
+      steps:[
+        `Short sale proceeds = ${money(F)} &times; (1 &minus; ${days0}/360 &times; ${pctS(d0,3)}) = ${money(proceeds)}`,
+        `Cash lent for ${hold} days grows to ${money(owed)}`,
+        `Buy back with ${days0-hold} days left = ${money(buyback)}`,
+        `Profit = ${money(owed)} &minus; ${money(buyback)} = ${money(correct)}`
+      ]};
+  }},
+
+{ id:"g1", topic:"gc", name:"The specialness of a special", gen(){
+    const gc = pick(range(.035,.06,.00125));
+    const sp = gc - pick(range(.004,.03,.00125));
+    const P = pick([50000000,100000000,250000000]);
+    const days = pick([1,7,14,30]);
+    const correct = P*(days/360)*(gc-sp);
+    return {
+      unit:"money",
+      text:`General collateral trades at <b>${pctS(gc,3)} p.a.</b>, but the specific bond you own has
+            gone <b>special</b> and repos at <b>${pctS(sp,3)} p.a.</b> You lend
+            <b>${money(P)}</b> of it for <b>${days} day${days===1?"":"s"}</b>.`,
+      ask:"How much do you save in financing cost versus repoing general collateral?",
+      correct,
+      cands:[
+        {val:P*(days/360)*sp, msg:`That is the interest you actually pay on the special. The saving is the difference against the GC rate.`},
+        {val:P*(days/360)*gc, msg:`That is what the financing would have cost at the GC rate. The saving is the difference.`},
+        {val:P*(gc-sp), msg:`That is a full year's saving. The repo runs ${days} days, so scale by ${days}/360.`},
+        {val:P*(days/365)*(gc-sp), msg:`Repo uses actual/360, not 365.`}
+      ],
+      steps:[
+        `Rate advantage = ${pctS(gc,3)} &minus; ${pctS(sp,3)} = ${pctS(gc-sp,4)}`,
+        `Saving = ${money(P)} &times; ${days}/360 &times; ${pctS(gc-sp,4)} = ${money(correct)}`,
+        `Owning a security everybody wants to borrow means you finance it more cheaply than everybody else.`
+      ]};
+  }},
+
+{ id:"h4", topic:"haircut", also:["leverage"], name:"Capital behind a levered position", gen(){
+    const V = pick([40000000,100000000,500000000,1000000000]);
+    const h = pick([.01,.02,.03,.05]);
+    const correct = V*h;
+    return {
+      unit:"money",
+      text:`You run a <b>${money(V)}</b> Treasury position funded entirely in the repo market at
+            a <b>${pctS(h,1)}</b> haircut.`,
+      ask:"How much of your own capital is tied up in it?",
+      correct,
+      cands:[
+        {val:V*(1-h), msg:`That is what the repo lender advances, not what you put up.`},
+        {val:V, msg:`That is the whole position. Repo funds all but the haircut.`},
+        {val:V/h, msg:`You divided instead of multiplying &mdash; that would be an enormous number, larger than the position itself.`},
+        {val:V*h/2, msg:`Halved. The haircut applies once, to the full value of the collateral.`}
+      ],
+      steps:[
+        `Repo advances ${pctS(1-h,1)} of ${money(V)} = ${money(V*(1-h))}`,
+        `You fund the remaining ${pctS(h,1)}: ${money(correct)}`,
+        `That is ${(1/h).toFixed(0)}&times; leverage &mdash; a ${pctS(h,1)} fall in the collateral wipes out your capital.`
+      ]};
+  }},
+
+{ id:"p3", topic:"mechanics", name:"Implied repo rate from the two legs", gen(){
+    const P = pick([25000000,50000000,100000000]);
+    const days = pick([7,14,30,60,90]);
+    const r = pick(range(.025,.07,.00125));
+    const back = repoOwed(P,days,r);
+    const correct = r;
+    return {
+      unit:"percent",
+      text:`A repo lends <b>${money(P)}</b> today against collateral, and
+            <b>${money(back)}</b> is repaid <b>${days} days</b> later.`,
+      ask:"What is the repo rate, quoted the market's way?",
+      correct,
+      cands:[
+        {val:(back/P-1), msg:`That is the interest over the ${days} days, not an annual rate. Annualise it by dividing by ${days}/360.`},
+        {val:(back/P-1)*365/days, msg:`You annualised on a 365-day year. Repo is actual/360.`},
+        {val:Math.pow(back/P,360/days)-1, msg:`You compounded. Repo interest is simple: rate = (interest / principal) &divide; (days/360).`},
+        {val:(back-P)/back*360/days, msg:`You divided the interest by the repurchase amount instead of by the principal actually lent.`}
+      ],
+      steps:[
+        `Interest = ${money(back)} &minus; ${money(P)} = ${money(back-P)}`,
+        `Interest as a fraction of principal = ${((back-P)/P).toFixed(8)}`,
+        `Annualise: &divide; (${days}/360) = ${pctS(correct,4)}`
+      ]};
+  }},
+
+/* ------------------- the Fed's two standing facilities ------------------ */
+
+
+
+
+
+/* ---------- margin, forced deleveraging, and break-even economics -------- */
+
+
+
+{ id:"def1", topic:"haircut", also:["concept"], name:"Does the haircut protect the lender?", gen(){
+    const V0=pick([100,200,500]);
+    const h=pick([.02,.03,.04,.05]);
+    const loan=(1-h)*V0;
+    const liqFall=h+pick(range(.005,.03,.0025));
+    const L=V0*(1-liqFall);
+    const correct=loan-L;
+    return {
+      unit:"number",
+      text:`A lender advances <b>\$${loan.toFixed(1)}m</b> against <b>\$${V0}m</b> of Treasuries, a
+            <b>${pctS(h,1)}</b> haircut. The borrower defaults. By the time the lender liquidates,
+            the collateral fetches only <b>\$${L.toFixed(2)}m</b>.`,
+      ask:"What is the lender's loss, in \$ millions?",
+      correct,
+      cands:[
+        {val:V0-L, msg:`That is the fall in the collateral's value. The lender never owned the upside &mdash; it only ever advanced \$${loan.toFixed(1)}m, so it can only lose what it advanced and did not recover.`},
+        {val:h*V0, msg:`That is the haircut itself, \$${(h*V0).toFixed(2)}m &mdash; the cushion. The loss is what the fall exceeded that cushion by.`},
+        {val:L, msg:`That is what the collateral fetched.`},
+        {val:loan, msg:`That is the whole advance. The lender recovered most of it.`}
+      ],
+      steps:[
+        `Advanced \$${loan.toFixed(1)}m, recovered \$${L.toFixed(2)}m, so the loss is \$${correct.toFixed(2)}m`,
+        `The collateral fell ${pctS(liqFall,2)}, against a cushion of ${pctS(h,1)}`,
+        `So the haircut is exactly the decline the lender can absorb before losing a cent &mdash; no more and no less. Everything beyond it is the lender's.`
+      ]};
+  }},
+
+{ id:"be2", topic:"finance", also:["bill","reason"], name:"The break-even discount rate", gen(){
+    const F=pick([100,200,500]);                // $m face
+    const days0=pick([90,120,180]);
+    const hold=pick([30,45,60]);
+    const m=days0-hold;
+    const d0=pick(range(.03,.06,.0025));
+    // The cost is rounded because it is displayed. The repo obligation is NOT displayed
+    // -- the student works it out -- so there is only one route to it and nothing to round.
+    const cost=+(F*(1-days0/360*d0)).toFixed(3);
+    const repo=pick(range(.025,.05,.00125));
+    const R=cost*(1+hold/360*repo);
+    const correct=(1-R/F)*360/m;
+    return {
+      unit:"percent",
+      text:`You buy a <b>${days0}-day</b> T-bill, face <b>\$${F}m</b>, at a discount rate of
+            <b>${pctS(d0,3)} p.a.</b> &mdash; costing <b>\$${cost.toFixed(3)}m</b> &mdash; and finance the
+            whole thing with a <b>${hold}-day</b> repo at <b>${pctS(repo,3)} p.a.</b> When the repo
+            matures the bill will have <b>${m} days</b> left to run.`,
+      ask:"At what discount rate does the bill sell for exactly what you owe your repo counterparty?",
+      correct,
+      cands:[
+        {val:1-R/F, msg:`That is the discount as a fraction of face over the remaining ${m} days, not annualised. Multiply by 360/${m}.`},
+        {val:(1-R/F)*360/days0, msg:`You annualised over the bill's <em>original</em> ${days0} days. At the point of sale it has only ${m} days left.`},
+        {val:(F-R)/R*360/m, msg:`You divided the discount by the price rather than the face value. The bill discount convention takes it off face.`},
+        {val:d0, msg:`That is the rate you bought at. Break-even is a different rate &mdash; it is the one that just covers your financing.`}
+      ],
+      steps:[
+        `The repo obligation is \$${cost.toFixed(3)}m &times; (1 + ${hold}/360 &times; ${pctS(repo,3)}) = \$${R.toFixed(4)}m`,
+        `You need a sale price of \$${R.toFixed(4)}m on \$${F}m of face, with ${m} days to run`,
+        `\$${R.toFixed(4)}m = \$${F}m &times; (1 &minus; ${m}/360 &times; d)`,
+        `d = (1 &minus; ${(R/F).toFixed(6)}) &times; 360/${m} = ${pctS(correct,4)}`,
+        `Sell below that rate and you profit; above it and the financing has eaten the trade.`
+      ]};
+  }},
+
+];
+
+/* ======================= CHOICE-MODE ITEMS ==============================
+   Auto-graded by which option is clicked, not by a typed number.
+     topic "error"   — a worked solution with one planted mistake
+     topic "concept" — reason about the direction of an effect, no arithmetic
+   Directional items shuffle their own options so position carries no
+   information; spot-the-error items must stay in step order.            */
+
+function shuffle(a){
+  const out = a.slice();
+  for (let i=out.length-1; i>0; i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [out[i],out[j]] = [out[j],out[i]];
+  }
+  return out;
+}
+
+const CHOICE_TEMPLATES = [
+{ id:"e1", topic:"error", also:["mechanics"], name:"Find the mistake — repo interest", gen(){
+    const P = pick([1000000,10000000,50000000]);
+    const days = pick([14,30,60,90]);
+    const r = pick(range(.03,.06,.005));
+    const fault = pick(["year365","noFraction","subtract"]);
+    const frac = fault==="year365" ? days/365 : days/360;
+    const interest = fault==="noFraction" ? P*r : P*frac*r;
+    const total = fault==="subtract" ? P-interest : P+interest;
+    const s = [
+      fault==="year365"
+        ? `<b>Step 1.</b> Day-count fraction = ${days}/365 = ${(days/365).toFixed(6)}`
+        : `<b>Step 1.</b> Day-count fraction = ${days}/360 = ${(days/360).toFixed(6)}`,
+      fault==="noFraction"
+        ? `<b>Step 2.</b> Interest = ${money(P)} &times; ${pctS(r,3)} = ${money(interest)}`
+        : `<b>Step 2.</b> Interest = ${money(P)} &times; ${frac.toFixed(6)} &times; ${pctS(r,3)} = ${money(interest)}`,
+      fault==="subtract"
+        ? `<b>Step 3.</b> Repurchase price = ${money(P)} &minus; ${money(interest)} = ${money(total)}`
+        : `<b>Step 3.</b> Repurchase price = ${money(P)} + ${money(interest)} = ${money(total)}`,
+      `<b>Step 4.</b> The lender keeps the collateral until that payment is made`
+    ];
+    const fine = [
+      `Step 1 is fine &mdash; the money market counts actual days over a 360-day year.`,
+      `Step 2 is fine &mdash; repo interest is simple interest on the cash advanced, scaled to the term.`,
+      `Step 3 is fine &mdash; the borrower repays the cash plus the interest.`,
+      `Step 4 is fine &mdash; that is what makes a repo a secured loan.`
+    ];
+    let at, why;
+    if (fault==="year365"){
+      at=0; why=`Money-market instruments use <b>actual/360</b>, not actual/365. The fraction is ${days}/360 = ${(days/360).toFixed(6)}. It is a small difference here, but it is the convention, and it runs through everything below.`;
+    } else if (fault==="noFraction"){
+      at=1; why=`A full year of interest has been charged on a ${days}-day loan. Scale the annual rate by ${days}/360: the interest is ${money(P*(days/360)*r)}, not ${money(interest)}.`;
+    } else {
+      at=2; why=`The interest was subtracted. The borrower received ${money(P)} and repays <em>more</em> than that. Subtracting would mean the lender pays for the privilege of lending.`;
+    }
+    return {
+      mode:"choice",
+      text:`A dealer repos out collateral for <b>${money(P)}</b> of cash, for <b>${days}
+            days</b>, at <b>${pctS(r,3)} p.a.</b> Here is a student's working:`,
+      ask:"Which step introduces the mistake?",
+      options: s.map((html,q)=>({html, correct:q===at, msg: q===at ? why : fine[q]})),
+      steps:[
+        `Fraction = ${days}/360 = ${(days/360).toFixed(6)}`,
+        `Interest = ${money(P)} &times; ${(days/360).toFixed(6)} &times; ${pctS(r,3)} = ${money(P*(days/360)*r)}`,
+        `Repurchase price = ${money(P + P*(days/360)*r)}`
+      ]};
+  }},
+
+{ id:"e2", topic:"error", also:["haircut"], name:"Find the mistake — the haircut", gen(){
+    const V = pick([100000000,200000000,500000000]);
+    const h = pick([.02,.03,.05]);
+    const fault = pick(["addHaircut","haircutIsLoan","leverageFlip"]);
+    const advance = fault==="addHaircut" ? V*(1+h)
+                  : fault==="haircutIsLoan" ? V*h
+                  : V*(1-h);
+    const cap = V - advance;
+    const s = [
+      `<b>Step 1.</b> Collateral value = ${money(V)}, haircut = ${pctS(h,1)}`,
+      fault==="haircutIsLoan"
+        ? `<b>Step 2.</b> Cash advanced = ${money(V)} &times; ${pctS(h,1)} = ${money(advance)}`
+        : (fault==="addHaircut"
+            ? `<b>Step 2.</b> Cash advanced = ${money(V)} &times; (1 + ${pctS(h,1)}) = ${money(advance)}`
+            : `<b>Step 2.</b> Cash advanced = ${money(V)} &times; (1 &minus; ${pctS(h,1)}) = ${money(advance)}`),
+      `<b>Step 3.</b> Your own capital in the trade = ${money(V)} &minus; ${money(advance)} = ${money(cap)}`,
+      fault==="leverageFlip"
+        ? `<b>Step 4.</b> Leverage = ${pctS(h,1)} of the position, so ${(h*100).toFixed(0)}&times;`
+        : `<b>Step 4.</b> Leverage = ${money(V)} &divide; ${money(cap)} = ${(V/cap).toFixed(2)}&times;`
+    ];
+    const fine = [
+      `Step 1 is fine &mdash; those are the inputs.`,
+      `Step 2 is fine &mdash; the lender advances everything except the haircut.`,
+      `Step 3 is fine &mdash; whatever the lender does not advance, you must fund yourself.`,
+      `Step 4 is fine &mdash; leverage is the position divided by the capital behind it.`
+    ];
+    let at, why;
+    if (fault==="addHaircut"){
+      at=1; why=`The haircut was added rather than subtracted. It is the lender's cushion, so they lend <em>less</em> than the collateral is worth: ${money(V)} &times; (1 &minus; ${pctS(h,1)}) = ${money(V*(1-h))}.`;
+    } else if (fault==="haircutIsLoan"){
+      at=1; why=`That is the haircut itself &mdash; the slice the lender holds back. The advance is the other ${pctS(1-h,1)}, or ${money(V*(1-h))}.`;
+    } else {
+      at=3; why=`Leverage is the position divided by the capital behind it: ${money(V)} &divide; ${money(V*h)} = ${(1/h).toFixed(0)}&times;. A ${pctS(h,1)} haircut means high leverage, not low.`;
+    }
+    return {
+      mode:"choice",
+      text:`A hedge fund posts <b>${money(V)}</b> of Treasuries as collateral against a
+            <b>${pctS(h,1)}</b> haircut. Here is a student's working:`,
+      ask:"Which step introduces the mistake?",
+      options: s.map((html,q)=>({html, correct:q===at, msg: q===at ? why : fine[q]})),
+      steps:[
+        `Cash advanced = ${money(V)} &times; (1 &minus; ${pctS(h,1)}) = ${money(V*(1-h))}`,
+        `Your capital = ${money(V*h)}`,
+        `Leverage = ${money(V)} / ${money(V*h)} = ${(1/h).toFixed(0)}&times;`
+      ]};
+  }},
+
+{ id:"k1", topic:"concept", also:["mechanics"], name:"What a repo actually is", gen(){
+    const opts = shuffle([
+      {html:`A loan secured by the security, dressed as a sale and a repurchase`, correct:true,
+       msg:`Right. Legally it is a sale with an agreement to buy back; economically it is a secured loan, and the repurchase price carries the interest.`},
+      {html:`An outright sale of the security`, correct:false,
+       msg:`No &mdash; the agreement to buy it back at a fixed price on a fixed date is part of the same contract. You keep the economic exposure.`},
+      {html:`An unsecured loan between banks`, correct:false,
+       msg:`The opposite. The collateral is exactly what makes a repo cheap and safe relative to unsecured borrowing.`},
+      {html:`A forward contract on the security`, correct:false,
+       msg:`No. In a repo cash and collateral change hands <em>today</em>. A forward has no cash flow at inception.`}
+    ]);
+    return {mode:"choice",
+      text:`In a repurchase agreement you sell a security today and agree to buy it back at a
+            fixed price on a fixed future date.`,
+      ask:"What is a repo, economically?",
+      options:opts,
+      steps:[
+        `Cash comes in today; the security goes out as collateral.`,
+        `On the repurchase date the cash goes back with interest, and the security returns.`,
+        `The lender holds the collateral throughout, which is what keeps the rate low.`
+      ]};
+  }},
+
+{ id:"k2", topic:"concept", also:["gc"], name:"General collateral against a special", gen(){
+    const opts = shuffle([
+      {html:`Its repo rate falls below the general collateral rate, so its owner finances it more cheaply`, correct:true,
+       msg:`Right. Cash lenders compete to get hold of that particular bond, and they compete by accepting a lower rate on the cash they hand over.`},
+      {html:`Its repo rate rises above general collateral`, correct:false,
+       msg:`Backwards. The borrower of cash is lending a bond everyone wants, so they are paid for it &mdash; through a lower financing rate.`},
+      {html:`It can no longer be used as repo collateral`, correct:false,
+       msg:`No. It is being used as collateral more heavily than usual; that is precisely why it has gone special.`},
+      {html:`Its price falls`, correct:false,
+       msg:`If anything the reverse. Heavy demand to borrow a bond usually accompanies a firm price for it.`}
+    ]);
+    return {mode:"choice",
+      text:`Most repo is done against <b>general collateral</b> &mdash; any Treasury will do.
+            Sometimes one specific bond is in heavy demand and goes <b>special</b>.`,
+      ask:"What happens to a security that goes special?",
+      options:opts,
+      steps:[
+        `In a GC repo the lender of cash does not care which bond they get.`,
+        `When they want one particular bond, they will accept a lower return on their cash to get it.`,
+        `So the special's repo rate sits below the GC rate, and its owner finances it cheaply.`
+      ]};
+  }},
+
+
+{ id:"k4", topic:"concept", also:["leverage"], name:"Orange County", gen(){
+    const opts = shuffle([
+      {html:`He bought Treasuries, repoed them out to raise cash, and bought more &mdash; a levered bet that rates would fall`, correct:true,
+       msg:`Right. It worked through 1993 while rates fell. When the Fed began raising in February 1994 the securities fell, lenders wanted more collateral, and losses reached $1.5 billion.`},
+      {html:`He shorted Treasuries expecting rates to rise`, correct:false,
+       msg:`The opposite position. He was long, and levered, and was hurt when rates rose.`},
+      {html:`He invested in unrated corporate debt that defaulted`, correct:false,
+       msg:`No. The collateral was Treasury securities. It was leverage and rate risk, not credit risk, that did the damage.`},
+      {html:`He lost the money in equity derivatives`, correct:false,
+       msg:`No. The mechanism was the repo market: repo out what you own to buy more of it.`}
+    ]);
+    return {mode:"choice",
+      text:`The Orange County Investment Pool, run by the county treasurer
+            <b>Robert Citron</b>, was worth <b>$20 billion</b> in 1993. By December 1994
+            the county had filed for bankruptcy.`,
+      ask:"What was the strategy?",
+      options:opts,
+      steps:[
+        `Buy Treasuries, repo them out for cash, use the cash to buy more Treasuries.`,
+        `In substance that is a levered bet that interest rates will fall.`,
+        `The Fed began raising in February 1994; losses reached $1.5 billion.`
+      ]};
+  }},
+
+{ id:"k5", topic:"concept", also:["short"], name:"How a reverse repo enables a short", gen(){
+    const opts = shuffle([
+      {html:`It lends you the security you need to deliver against the short sale`, correct:true,
+       msg:`Right. You cannot sell what you do not have, so you borrow it &mdash; lending cash and taking the security as collateral, which is a reverse repo.`},
+      {html:`It lends you the cash to buy the security`, correct:false,
+       msg:`That is an ordinary repo, used to <em>finance</em> a long position. A short needs the security itself.`},
+      {html:`It guarantees the price at which you can buy the security back`, correct:false,
+       msg:`No such guarantee. The repurchase risk is exactly what makes a short risky.`},
+      {html:`It removes the need to deliver the security at all`, correct:false,
+       msg:`Delivery is still required. The reverse repo is how you obtain something to deliver.`}
+    ]);
+    return {mode:"choice",
+      text:`You think a bill is expensive and want to sell it short, but you do not own it.`,
+      ask:"What does a reverse repo do for you?",
+      options:opts,
+      steps:[
+        `In a reverse repo you lend cash and receive a security as collateral.`,
+        `You deliver that security against your short sale.`,
+        `Meanwhile the cash you lent earns the repo rate, so the short is not idle money.`
+      ]};
+  }},
+
+{ id:"k6", topic:"concept", also:["mechanics"], name:"Actual/360", gen(){
+    const opts = shuffle([
+      {html:`Count the actual days and divide by 360`, correct:true,
+       msg:`Right. Thirty days of a repo is 30/360 of the annual rate, even though thirty days is not a twelfth of a real year.`},
+      {html:`Count the actual days and divide by 365`, correct:false,
+       msg:`That is actual/365, used in some other markets. US money-market instruments &mdash; repo, T-bills, commercial paper &mdash; use a 360-day year.`},
+      {html:`Assume every month has 30 days and the year has 360`, correct:false,
+       msg:`That is 30/360, a bond-market convention. Repo counts the days that actually elapse.`},
+      {html:`Compound daily at the annual rate divided by 360`, correct:false,
+       msg:`Repo interest is <em>simple</em>, not compounded, over the term of the trade.`}
+    ]);
+    return {mode:"choice",
+      text:`Repo interest, T-bill discounts and most other money-market calculations use the
+            <b>actual/360</b> day-count convention.`,
+      ask:"What does actual/360 mean?",
+      options:opts,
+      steps:[
+        `Actual: count the days that really elapse between the two legs.`,
+        `360: divide by a 360-day year, whatever the calendar says.`,
+        `So a 14-day repo at 5% costs 14/360 &times; 5% of the cash advanced.`
+      ]};
+  }},
+
+{ id:"k7", topic:"concept", also:["leverage"], name:"Which haircut allows more leverage", gen(){
+    const opts = shuffle([
+      {html:`The 2% haircut &mdash; the same capital supports 50 times the position`, correct:true,
+       msg:`Right. Leverage is 1/haircut: 1/0.02 = 50&times; against 1/0.05 = 20&times;. The lender, in setting the haircut, sets how large your position can be.`},
+      {html:`The 5% haircut, since more collateral is held back`, correct:false,
+       msg:`Holding more back means you must fund more yourself, which is <em>less</em> leverage.`},
+      {html:`They give the same leverage; only the rate differs`, correct:false,
+       msg:`No. The rate sets the cost of the position; the haircut sets its maximum size.`},
+      {html:`It depends on the repo rate, not the haircut`, correct:false,
+       msg:`The rate determines what the financing costs. How much you can hold is fixed by the haircut.`}
+    ]);
+    return {mode:"choice",
+      text:`One lender offers a <b>2%</b> haircut, another a <b>5%</b> haircut, on the same
+            collateral.`,
+      ask:"Which lets you run the larger position on a given amount of capital?",
+      options:opts,
+      steps:[
+        `With a 2% haircut, $2 of capital supports $100 of securities &mdash; 50&times;.`,
+        `With a 5% haircut, the same $2 supports $40 &mdash; 20&times;.`,
+        `Leverage = 1 / haircut.`
+      ]};
+  }},
+
+{ id:"k8", topic:"concept", also:["finance"], name:"Where the risk sits in a financed trade", gen(){
+    const opts = shuffle([
+      {html:`With the borrower &mdash; the repo must be repaid in full whatever the collateral is then worth`, correct:true,
+       msg:`Right. The financing is a fixed obligation; the collateral's value is not. That asymmetry is what makes a levered position dangerous.`},
+      {html:`With the lender, who bears the fall in the collateral's value`, correct:false,
+       msg:`Only beyond the haircut, and only if the borrower fails. In the ordinary case the borrower repays in full and absorbs the loss.`},
+      {html:`Nowhere &mdash; the collateral secures the loan, so nobody loses`, correct:false,
+       msg:`The collateral protects the <em>lender</em>. It does nothing for the borrower, who still owes the full repurchase price.`},
+      {html:`It is shared equally between the two parties`, correct:false,
+       msg:`No. The lender's exposure is capped by the haircut; the borrower's is not capped at all.`}
+    ]);
+    return {mode:"choice",
+      text:`You buy a bill and finance the whole purchase with a repo. Rates then move against
+            you and the bill falls in value.`,
+      ask:"Who bears that loss?",
+      options:opts,
+      steps:[
+        `The repurchase price was fixed when the repo was struck.`,
+        `The bill's sale proceeds are not fixed &mdash; they depend on where rates end up.`,
+        `Any shortfall comes out of the borrower's own capital.`
+      ]};
+  }},
+
+/* ------------------- the Fed's two standing facilities ------------------ */
+
+
+
+
+
+{ id:"ksrf", topic:"fed", name:"What the Standing Repo Facility is for", gen(){
+    const opts = shuffle([
+      {html:`Eligible counterparties borrow cash overnight from the Fed at a fixed rate, which caps how far the market repo rate can climb`, correct:true,
+       msg:`Right. Its rate sits at the <em>exact upper bound</em> of the federal funds target range, so nobody has reason to pay more in the open market than they can borrow at from the Fed. The ON RRP does the same job at the bottom, and between them the two facilities bracket the range.`},
+      {html:`A facility where institutions lend cash to the Fed overnight`, correct:false,
+       msg:`That is the ON RRP, which runs the other way and puts a <em>floor</em> under what cash lenders will accept. The SRF is the ceiling side.`},
+      {html:`A programme for buying Treasuries outright to expand the balance sheet`, correct:false,
+       msg:`That is quantitative easing. The SRF is a repo facility &mdash; temporary, and reversed when the second leg settles.`},
+      {html:`A penalty window that banks avoid because of stigma`, correct:false,
+       msg:`That describes the discount window, whose rate is deliberately unattractive. The SRF is priced <em>at</em> the top of the target range, so using it is a rational alternative to paying more in the market.`}
+    ]);
+    return {mode:"choice",
+      text:`The Fed runs two standing facilities on either side of the repo market. One was
+            established in <b>July 2021</b>.`,
+      ask:"What does the Standing Repo Facility do?",
+      options:opts,
+      steps:[
+        `ON RRP: institutions <em>lend</em> cash to the Fed. Its rate is the exact <em>lower</em> bound of the federal funds target range &mdash; a floor.`,
+        `SRF: eligible counterparties <em>borrow</em> cash from the Fed against Treasury, agency and agency MBS collateral. Its rate is the exact <em>upper</em> bound &mdash; a ceiling.`,
+        `So the two facilities bracket the federal funds target range, one on each side of the repo market.`
+      ]};
+  }},
+
+
+
+{ id:"efed", topic:"error", also:["fed"], name:"Find the mistake — the Fed's two facilities", gen(){
+    const fault=pick(["direction","srfPurpose","rrpFloor"]);
+    const s=[
+      `<b>Step 1.</b> The Fed uses repos to add or drain cash temporarily. Lending cash against securities raises reserves; taking cash in lowers them.`,
+      fault==="direction"
+        ? `<b>Step 2.</b> Under the ON RRP, institutions <em>borrow</em> cash from the Fed overnight against Treasury collateral.`
+        : `<b>Step 2.</b> Under the ON RRP, institutions <em>lend</em> cash to the Fed overnight against Treasury collateral.`,
+      fault==="rrpFloor"
+        ? `<b>Step 3.</b> Because they can always do that, the ON RRP rate puts a <em>ceiling</em> on what they will accept elsewhere.`
+        : `<b>Step 3.</b> Because they can always do that, the ON RRP rate puts a <em>floor</em> under what they will accept elsewhere.`,
+      fault==="srfPurpose"
+        ? `<b>Step 4.</b> The Standing Repo Facility, set up in July 2021, is used constantly and is the Fed's main tool for setting the overnight rate.`
+        : `<b>Step 4.</b> The Standing Repo Facility, set up in July 2021, lets eligible counterparties borrow from the Fed, and is drawn on only when the market would otherwise cost them more.`
+    ];
+    const fine=[
+      `Step 1 is fine &mdash; that is exactly how a temporary open market operation works.`,
+      `Step 2 is fine &mdash; the ON RRP takes cash in, which is why money market funds use it.`,
+      `Step 3 is fine &mdash; a lender who can always get the ON RRP rate will not accept less elsewhere.`,
+      `Step 4 is fine &mdash; it binds only when the market would otherwise be dearer, which is why usage is normally light.`
+    ];
+    let at, why;
+    if (fault==="direction"){
+      at=1; why=`Reversed. Under the ON RRP institutions <em>lend</em> to the Fed &mdash; they hand over cash and take Treasury collateral. It is the Standing Repo Facility that runs the other way.`;
+    } else if (fault==="rrpFloor"){
+      at=2; why=`A floor, not a ceiling. If a money market fund can always lend to the Fed at the ON RRP rate, it will not lend to anyone else for less &mdash; so the rate holds the market <em>up</em>, not down.`;
+    } else {
+      at=3; why=`The SRF is a ceiling, not a lever. Its rate sits at the exact upper bound of the target range, so it binds only when the market would otherwise climb above it &mdash; institutions have no reason to pay more elsewhere. It is not how the Fed sets the overnight rate day to day.`;
+    }
+    return {
+      mode:"choice",
+      text:`A student summarises the Fed's two standing facilities in the repo market:`,
+      ask:"Which step introduces the mistake?",
+      options: s.map((html,k)=>({html, correct:k===at, msg: k===at ? why : fine[k]})),
+      steps:[
+        `ON RRP: institutions lend to the Fed. Its rate is the exact lower bound of the target range &mdash; a floor.`,
+        `SRF: eligible counterparties borrow from the Fed. Its rate is the exact upper bound of the target range &mdash; a ceiling.`,
+        `So the two facilities bracket the federal funds target range, one on each side of the repo market.`
+      ]};
+  }},
+
+/* ---------- direction, pricing, and the spiral --------------------------- */
+
+{ id:"kside", topic:"mechanics", also:["short","reason"], name:"Which side of the trade are you on?", gen(){
+    const cases=[
+      {sit:`You own a Treasury and want cash to finance holding it.`,
+       right:`Repo it out &mdash; you deliver the security and receive cash`,
+       why:`Right. You have the collateral and you want the cash, so you are the borrower: you sell the security now and agree to buy it back.`},
+      {sit:`You want to short a Treasury you do not own.`,
+       right:`Reverse repo &mdash; you lend cash and receive the security`,
+       why:`Right. You cannot sell what you do not have, so you lend cash to obtain the bond, then sell it. Your cash is not idle either &mdash; it earns the repo rate.`},
+      {sit:`You are a money market fund with cash to place overnight, and you want Treasury collateral against it.`,
+       right:`Reverse repo &mdash; you lend cash and take the security as collateral`,
+       why:`Right. You have the cash and want security, so you are the lender. Lending cash against Treasury collateral is the bulk of what money market funds do.`},
+      {sit:`You are a dealer who has just bought a bond for a client and needs to fund it overnight.`,
+       right:`Repo it out &mdash; you deliver the security and receive cash`,
+       why:`Right. Funding an inventory position is the classic use of repo: the bond you just bought is the collateral for the cash that pays for it.`}
+    ];
+    const c=pick(cases);
+    const wrong=[
+      {html:`Repo it out &mdash; you deliver the security and receive cash`,
+       msg:`That is the cash-<em>borrower</em>'s side. Read the situation again: which do you already have, the security or the cash?`},
+      {html:`Reverse repo &mdash; you lend cash and receive the security`,
+       msg:`That is the cash-<em>lender</em>'s side. Read the situation again: which do you already have?`},
+      {html:`Neither &mdash; an outright purchase or sale is the only way to do this`,
+       msg:`An outright trade changes your position permanently. Repo is how you obtain cash or a security <em>temporarily</em>, with the reverse leg already agreed.`},
+      {html:`Either one &mdash; repo and reverse repo are the same transaction`,
+       msg:`They are the same transaction seen from opposite sides. Which name applies depends on which side you are, and that is exactly what the question asks.`}
+    ].filter(o=>o.html!==c.right);
+    return {mode:"choice",
+      text:c.sit,
+      ask:"Which side of a repo transaction are you on?",
+      options: shuffle([{html:c.right, correct:true, msg:c.why}, ...wrong.slice(0,3)]),
+      steps:[
+        `Repo: you start with the security and want cash. You are the borrower.`,
+        `Reverse repo: you start with the cash and want the security. You are the lender.`,
+        `Every repo is somebody's reverse repo. The label just says which end you are standing at.`
+      ]};
+  }},
+
+{ id:"kuns", topic:"mechanics", also:["concept","reason"], name:"Why repo is cheaper than unsecured", gen(){
+    const u=pick([5.10,5.20,5.30]), r=+(u-pick([0.25,0.35,0.45])).toFixed(2);
+    const opts = shuffle([
+      {html:`The lender holds Treasury collateral, so a borrower failure costs it only what the collateral falls short by`, correct:true,
+       msg:`Right. Unsecured, the lender is exposed to the borrower's whole credit. Secured against Treasuries with a haircut, its exposure is the amount by which the collateral could fall beyond that cushion &mdash; a far smaller number, so it accepts a lower rate.`},
+      {html:`The repo borrower is a safer institution than the unsecured borrower`, correct:false,
+       msg:`It can be the very same institution borrowing both ways on the same morning. What differs is the collateral, not the name on the trade.`},
+      {html:`Collateral removes the risk entirely, so the repo rate reflects no credit risk at all`, correct:false,
+       msg:`Not entirely. The lender still faces the gap between the collateral's value and the loan if the borrower fails and prices have moved &mdash; which is why the haircut exists, and why the repo rate is not zero.`},
+      {html:`Repo is shorter-dated, and shorter loans always cost less`, correct:false,
+       msg:`Both quotes here are overnight. The difference is security, not tenor.`}
+    ]);
+    return {mode:"choice",
+      text:`A bank can borrow <b>unsecured</b> overnight at <b>${u.toFixed(2)}%</b>, or borrow the
+            same cash overnight in <b>repo</b> against Treasury collateral at <b>${r.toFixed(2)}%</b>.`,
+      ask:`Why is the repo rate ${((u-r)*100).toFixed(0)} basis points lower?`,
+      options:opts,
+      steps:[
+        `Unsecured, the lender's exposure is the borrower's credit.`,
+        `Secured, it is the collateral's shortfall beyond the haircut if the borrower fails.`,
+        `That is a much smaller exposure, so the lender accepts less. It is not zero, which is why the rate is not zero either.`
+      ]};
+  }},
+
+{ id:"kspec", topic:"gc", also:["reason"], name:"Spot the special", gen(){
+    const gc=pick([4.80,4.65,5.05]);
+    const sp=+(gc-pick([0.75,0.90,1.05])).toFixed(2);
+    const near=+(gc-0.03).toFixed(2), above=+(gc+0.01).toFixed(2);
+    const opts = shuffle([
+      {html:`Treasury C, at ${sp.toFixed(2)}% &mdash; well below the ${gc.toFixed(2)}% general collateral rate`, correct:true,
+       msg:`Right. Cash lenders are accepting ${((gc-sp)*100).toFixed(0)} basis points less than they could earn against any old Treasury, purely to get hold of this one. That discount <em>is</em> the price of the bond's scarcity.`},
+      {html:`Treasury D, at ${above.toFixed(2)}% &mdash; the only one above general collateral`, correct:false,
+       msg:`A rate slightly above GC means nobody particularly wants that bond. Specialness pushes a repo rate <em>down</em>, not up.`},
+      {html:`Treasury B, at ${near.toFixed(2)}% &mdash; it is below general collateral`, correct:false,
+       msg:`Three basis points is noise, not scarcity. Treasury C is a full ${((gc-sp)*100).toFixed(0)} basis points below.`},
+      {html:`Treasury A, at ${gc.toFixed(2)}% &mdash; exactly at general collateral`, correct:false,
+       msg:`Trading exactly at GC is the definition of <em>not</em> being special.`}
+    ]);
+    return {mode:"choice",
+      text:`General collateral is trading at <b>${gc.toFixed(2)}%</b>. Four Treasuries repo at:
+            <b>A ${gc.toFixed(2)}%</b>, <b>B ${near.toFixed(2)}%</b>, <b>C ${sp.toFixed(2)}%</b>,
+            <b>D ${above.toFixed(2)}%</b>.`,
+      ask:"Which one has gone special?",
+      options:opts,
+      steps:[
+        `A cash lender who does not care which bond it gets earns the GC rate of ${gc.toFixed(2)}%.`,
+        `To obtain one particular bond it must accept less &mdash; and it accepts ${((gc-sp)*100).toFixed(0)}bp less for C.`,
+        `Read the other way: C's owner finances it ${((gc-sp)*100).toFixed(0)}bp cheaper than everyone else. Specialness is a securities-borrowing fee wearing a repo rate's clothing.`
+      ]};
+  }},
+
+
+];
+
+const TOPICS = [
+  {key:"all", label:"Mixed"},
+  {key:"mechanics", label:"Repo mechanics"},
+  {key:"gc", label:"GC & specials"},
+  {key:"haircut", label:"Haircuts"},
+  {key:"leverage", label:"Leverage"},
+  {key:"finance", label:"Financing a trade"},
+  {key:"short", label:"Shorting"},
+  {key:"fed", label:"The Fed's facilities"},
+  {key:"error", label:"Find the mistake"},
+  {key:"concept", label:"Concepts"}
+];
+
+/* ----------------------------------------------------------------- state */
+let active = "all", current = null, tries = 0;
+let peeked = false, solved = false, tallied = false;  // tallied = already counted in `attempted`
+const stats = {att:0, first:0, streak:0, peek:0};
+
+const $ = id => document.getElementById(id);
+
+function buildTopics(){
+  const box = $("topics");
+  TOPICS.forEach(t=>{
+    const b = document.createElement("button");
+    b.className = "chip"; b.textContent = t.label;
+    b.setAttribute("aria-pressed", String(t.key===active));
+    b.onclick = ()=>{
+      active = t.key;
+      [...box.children].forEach(c=>c.setAttribute("aria-pressed","false"));
+      b.setAttribute("aria-pressed","true");
+      seqIdx = 0;                 // a new topic restarts the sequence
+      newQuestion();
+    };
+    box.appendChild(b);
+  });
+}
+
+const ALL_TEMPLATES = TEMPLATES.concat(CHOICE_TEMPLATES);
+
+/* A template's primary topic is `topic`; it may also list secondary topics in
+   `also`, so one item can appear under several chips. */
+function inTopic(t, key){
+  return t.topic === key || (Array.isArray(t.also) && t.also.includes(key));
+}
+
+/* ---- progress: distinct templates solved without opening the solution ---- */
+const PROG_KEY = "practice-progress:" + document.title;
+let mastered = new Set();
+try { mastered = new Set(JSON.parse(localStorage.getItem(PROG_KEY) || "[]")); }
+catch (e) { mastered = new Set(); }
+
+function saveProgress(){
+  try { localStorage.setItem(PROG_KEY, JSON.stringify([...mastered])); } catch (e) {}
+}
+function markMastered(id){
+  if (!id || mastered.has(id)) return;
+  mastered.add(id);
+  saveProgress();
+}
+
+/* Templates are drawn WITHOUT immediate repeats. Sampling with replacement
+   looks fine on the full bank, but a topic holding only three or four
+   templates repeats roughly one press in three, which reads as the button
+   being broken. Hold the most recent half of the pool out of the draw. */
+let recentIds = [];
+/* Questions seen this session, so the arrow keys can step back and forth through them. */
+let history = [], histIdx = -1;
+let navKey = false;      // true while an arrow key is doing the rendering
+let order = "shuffle";   // "shuffle" | "seq"
+let seqIdx = 0;
+
+function newQuestion(replay){
+  let q;
+  if (replay){ q = replay.q; }
+  else {
+  const pool = active==="all" ? ALL_TEMPLATES : ALL_TEMPLATES.filter(t=>inTopic(t,active));
+  let tpl;
+  if (order === "seq"){
+    /* walk the bank in order, wrapping at the end */
+    if (seqIdx >= pool.length) seqIdx = 0;
+    tpl = pool[seqIdx];
+    seqIdx = (seqIdx + 1) % pool.length;
+    $("seqPos").textContent = `${seqIdx === 0 ? pool.length : seqIdx} of ${pool.length}`;
+  } else {
+    const hold = Math.max(1, Math.floor(pool.length / 2));
+    let choices = pool.filter(t => !recentIds.slice(0, hold).includes(t.id));
+    if (!choices.length) choices = pool;        // pool of one, or all held out
+    tpl = pick(choices);
+    recentIds.unshift(tpl.id);
+    if (recentIds.length > 40) recentIds.length = 40;
+    $("seqPos").textContent = "";
+  }
+  q = tpl.gen();
+  q.name = tpl.name;
+  q.id   = tpl.id;
+  q.seqPos = $("seqPos").textContent;   // carried so stepping back shows its own position
+  if (q.mode !== "choice") q.distractors = usable(q.correct, q.cands, q.sep);
+  }
+  current = q;
+  if (replay){
+    tries = replay.tries; peeked = replay.peeked; solved = replay.solved; tallied = replay.tallied;
+  } else {
+    tries = 0; peeked = false; solved = false; tallied = false;
+    history = history.slice(0, histIdx + 1);           // a new draw discards anything ahead
+    history.push({q, tries:0, peeked:false, solved:false, tallied:false, fb:"", ans:""});
+    if (history.length > 50){ history.shift(); }
+    histIdx = history.length - 1;
+  }
+
+  const isChoice = q.mode === "choice";
+  $("qmeta").textContent = q.name;
+  $("qtext").innerHTML   = q.text;
+  $("qask").innerHTML    = q.ask;
+  /* Hide the input and Check individually, NOT the whole row -- the
+     "New question" button lives in that row and must stay reachable
+     on choice questions. */
+  $("ans").hidden   = isChoice;
+  $("check").hidden = isChoice;
+  $("opts").hidden     = !isChoice;
+  const box = $("opts");
+  box.innerHTML = "";              // always clear, even when the panel is hidden
+  if (isChoice){
+    q.options.forEach((o,k)=>{
+      const btn = document.createElement("button");
+      btn.className = "opt"; btn.innerHTML = o.html;
+      btn.onclick = () => pickOption(k);
+      box.appendChild(btn);
+    });
+  }
+  $("ans").value = "";
+  $("ans").placeholder = q.unit==="money" ? "e.g. 1234.56"
+                     : q.unit==="percent" ? "e.g. 12.34  (percent)"
+                     : "e.g. 0.973378";
+  $("ans").disabled = false;
+  $("check").disabled = false;
+  $("fb").innerHTML = "";
+  $("steps").innerHTML = q.steps.map(s=>`<div>${s}</div>`).join("");
+  const d = $("soldetails"); d.hidden = false; d.open = false;
+  if (replay){
+    /* Put the question back exactly as it was left --- the feedback, what was typed, and
+       whether it had already been answered. The tallied/solved flags come back with it,
+       so revisiting a question never re-counts an attempt or re-awards mastery. */
+    $("fb").innerHTML = replay.fb || "";
+    $("ans").value    = replay.ans || "";
+    $("seqPos").textContent = q.seqPos || "";
+    if (isChoice && q.wrong){
+      [...$("opts").children].forEach((b,j)=>{
+        if (q.wrong.indexOf(j) >= 0){ b.classList.add("wrong"); b.disabled = true; }
+      });
+    }
+    if (solved || q.done){
+      if (isChoice){
+        [...$("opts").children].forEach((b,j)=>{ b.disabled = true;
+          if (q.options[j].correct) b.classList.add("right"); });
+      } else { $("ans").disabled = true; $("check").disabled = true; }
+    }
+    d.open = peeked || solved;
+  }
+  /* Arriving by arrow key must not park the cursor in the answer box: a restored answer
+     sitting there would swallow the next arrow press and strand the student. */
+  if (navKey) $("ans").blur();
+  else if (!isChoice && !$("ans").disabled) $("ans").focus();
+}
+
+function parseInput(raw){
+  const cleaned = raw.replace(/[$,%\s,]/g,"");
+  if (cleaned === "" ) return NaN;
+  return Number(cleaned);
+}
+
+function say(kind, title, body){
+  $("fb").innerHTML = `<div class="fb ${kind}"><strong>${title}</strong>${body}</div>`;
+}
+
+function pickOption(k){
+  const q = current;
+  if (q.done) return;
+  const o    = q.options[k];
+  const btns = [...$("opts").children];
+
+  tries++;
+  if (!tallied){ tallied = true; stats.att++; }
+
+  if (o.correct){
+    q.done = true; solved = true;
+    btns.forEach((b2,j)=>{ b2.disabled = true; if (q.options[j].correct) b2.classList.add("right"); });
+    if (peeked){
+      stats.streak = 0;
+      say("ok","Correct — but you read the solution first.",
+          "It still counts as attempted, just not toward first-try accuracy or your streak. " + o.msg);
+    } else {
+      stats.streak++;
+      if (tries === 1) stats.first++;
+      markMastered(q.id);
+      say("ok", tries===1 ? "Correct — first try." : "Correct.", o.msg);
+    }
+    $("soldetails").open = true;
+  } else {
+    stats.streak = 0;
+    btns[k].classList.add("wrong");
+    btns[k].disabled = true;
+    (q.wrong || (q.wrong = [])).push(k);   // remembered so a revisit keeps it eliminated
+    say("no","Not that one.", o.msg);
+  }
+  render();
+}
+
+function check(){
+  const raw = $("ans").value;
+  const parsed = parseInput(raw);
+  if (!Number.isFinite(parsed)){
+    say("hint","Enter a number","Type your answer as a number — you can include $ , or % and it will be ignored.");
+    return;
+  }
+  const q = current;
+  const val = q.unit==="percent" ? parsed/100 : parsed;
+  const TOL = q.tol || REL_MATCH;
+
+  /* Unit slips are formatting mistakes, not wrong answers, so they cost
+     neither an attempt nor first-try credit. Guarded so a genuinely
+     correct entry can never be mistaken for one. */
+  if (!near(val, q.correct, TOL)){
+    if (q.unit==="percent" && near(parsed, q.correct, TOL)){
+      say("hint","Right number, wrong units.",
+          `You entered <code>${raw}</code> as a decimal. This box wants a percent — enter <code>${(q.correct*100).toFixed(4).replace(/\.?0+$/,"")}</code> instead.`);
+      return;
+    }
+    if (near(val*100, q.correct, TOL) || near(val/100, q.correct, TOL)){
+      say("hint","Check your units.","Your figure is off by a factor of 100. Re-read what the box is asking for.");
+      return;
+    }
+  }
+
+  tries++;
+  if (!tallied){ tallied = true; stats.att++; }   // count each question once, right or wrong
+
+  if (near(val, q.correct, TOL)){
+    solved = true;
+    if (peeked){
+      stats.streak = 0;
+      say("ok","Correct — but you read the solution first.",
+          "That is a perfectly good way to learn, and it still counts as attempted. It does " +
+          "not count toward first-try accuracy or your streak, so those numbers stay honest. " +
+          "Try the next one before opening the solution.");
+    } else {
+      stats.streak++;
+      if (tries === 1) stats.first++;
+      markMastered(q.id);
+      say("ok","Correct.", tries===1 ? "First try — well done." : "Got there.");
+    }
+    $("check").disabled = true; $("ans").disabled = true;
+    $("soldetails").open = true;
+    render(); return;
+  }
+
+  stats.streak = 0;
+  const hit = q.distractors.find(d => near(val, d.val, TOL));
+  say("no", hit ? "Not quite — and I can see why." : "Not quite.",
+      hit ? hit.msg
+          : "That does not match any of the usual slips, so it may be an arithmetic error. Try again, or open the worked solution below.");
+  render();
+}
+
+function render(){
+  $("sAtt").textContent    = stats.att;
+  $("sFirst").textContent  = stats.first;
+  $("sAcc").textContent    = stats.att ? Math.round(stats.first/stats.att*100)+"%" : "—";
+  $("sStreak").textContent = stats.streak;
+  $("sPeek").textContent   = stats.peek;
+  const total = ALL_TEMPLATES.length;
+  $("pTotal").textContent  = total;
+  $("pDone").textContent   = mastered.size;
+  $("progfill").style.width = (total ? 100*mastered.size/total : 0).toFixed(1) + "%";
+}
+
+$("check").onclick = check;
+$("next").onclick  = () => newQuestion();   // arrow fn: never pass the click Event as `replay`
+
+/* ---- arrow keys: right for the next question, left for the previous one -------------
+   Ignored while the answer box is being typed in, where the arrows move the caret, and
+   ignored with a modifier held so the browser's own shortcuts still work.            */
+function snapshotQuestion(){
+  const h = history[histIdx];
+  if (!h) return;
+  h.tries = tries; h.peeked = peeked; h.solved = solved; h.tallied = tallied;
+  h.fb = $("fb").innerHTML; h.ans = $("ans").value;
+}
+function goBack(){
+  if (histIdx <= 0) return;
+  snapshotQuestion(); histIdx--;
+  navKey = true; newQuestion(history[histIdx]); navKey = false;
+}
+function goForward(){
+  snapshotQuestion();
+  navKey = true;
+  if (histIdx < history.length - 1){ histIdx++; newQuestion(history[histIdx]); }
+  else newQuestion();
+  navKey = false;
+}
+document.addEventListener("keydown", e => {
+  if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+  if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+  const t = e.target;
+  if (t && (t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+  /* Inside the answer box the arrows belong to the caret --- but only while it still has
+     somewhere to go. Once it sits at the end you are pressing toward, the press is free,
+     so a half-typed answer never traps a student in the field. */
+  if (t && t.tagName === "INPUT" && !t.disabled){
+    const at = t.selectionStart, to = t.selectionEnd, n = String(t.value).length;
+    if (at === null || at !== to) return;                       // a selection: leave it alone
+    if (e.key === "ArrowRight" ? at < n : at > 0) return;
+  }
+  e.preventDefault();
+  if (e.key === "ArrowRight") goForward(); else goBack();
+});
+$("ans").addEventListener("keydown", e=>{ if(e.key==="Enter" && !$("check").disabled) check(); });
+$("soldetails").addEventListener("toggle", ()=>{
+  if ($("soldetails").open && !solved && !peeked){
+    peeked = true;
+    stats.peek++;
+    if (!tallied){ tallied = true; stats.att++; }  // opening it counts as engaging with the question
+    render();
+  }
+});
+
+function setOrder(o){
+  order = o; seqIdx = 0;
+  $("mShuffle").setAttribute("aria-pressed", String(o === "shuffle"));
+  $("mSeq").setAttribute("aria-pressed",     String(o === "seq"));
+  newQuestion();
+}
+$("mShuffle").onclick = () => setOrder("shuffle");
+$("mSeq").onclick     = () => setOrder("seq");
+
+$("pReset").onclick = () => {
+  if (!mastered.size) return;
+  mastered.clear(); saveProgress(); render();
+};
+
+buildTopics();
+newQuestion();
+render();
+</script>
+</body>
+</html>
