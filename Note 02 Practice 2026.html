@@ -1098,28 +1098,36 @@ const TEMPLATES = [
       ]};
   }},
 
-{ id:"q32c", topic:"convention", name:"Digits past the thirty-second", gen(){
+{ id:"q32c", topic:"convention", name:"A thirty-seconds quote written with a decimal point", gen(){
+    /* Rewritten 13 Sep 2026 at Anh's request. It used to draw quotes like 96.1225 and read
+       the last two digits as hundredths of a 32nd. The live WSJ table shows four digits,
+       but its third digit counts EIGHTHS of a 32nd and its fourth is always 0 (checked
+       against all 346 repriceable bonds), so that reading was wrong. Every example in
+       Note 02 now keeps the third and fourth digits at zero: 96.1600 is 96-16.        */
     const P=pick([96,98,100,102,104]);
-    const n=pick(range(6,29,1));
-    const frac=pick([20,25,40,50,60,75,80]);
-    const q=`${P}.${String(n).padStart(2,"0")}${frac}`;
-    const correct=P+(n+frac/100)/32;
+    /* Numerators 12, 20 and 28 are left out: n/32 of a dollar lands exactly on a half-cent
+       when n is 4 more than a multiple of 8, and a half-cent answer has no fair rounding. */
+    const n=pick(range(6,29,1).filter(k=>k%8!==4));
+    /* One discarded draw, where the old version drew its hundredths. It keeps the seeded
+       proof sheet unchanged for every other template.                                  */
+    Math.random();
+    const q=`${P}.${String(n).padStart(2,"0")}00`;
+    const correct=P+n/32;
     return {
       unit:"money",
       tol:0.0008, sep:0.0008,
-      text:`A Treasury note is quoted at <b>${q}</b>. Digits beyond the first two after the point
-            are fractions of a thirty-second.`,
+      text:`A price table shows a Treasury note quoted at <b>${q}</b>.`,
       ask:"What is that per $100 of face value, in dollars?",
       correct,
       cands:[
-        {val:P+Number(`${n}.${frac}`)/100, msg:`You read the whole thing as a decimal price. The ${String(n).padStart(2,"0")} is thirty-seconds and the ${frac} is hundredths of a thirty-second, so the fraction is ${n}.${frac}/32 = ${((n+frac/100)/32).toFixed(6)}.`},
-        {val:P+(n+frac/100)/16, msg:`You halved the denominator. A point is divided into 32.`},
-        {val:P+n/32+frac/32, msg:`You treated the ${frac} as ${frac} more thirty-seconds. It is ${frac} <em>hundredths</em> of one thirty-second &mdash; a much smaller amount.`}
+        {val:P+n/100, msg:`You read it as a decimal price. ${q} is ${P}-${String(n).padStart(2,"0")} written with a decimal point: notes and bonds are quoted in <b>thirty-seconds of a point</b>, so the ${String(n).padStart(2,"0")} is ${n}/32 = ${(n/32).toFixed(5)}, not ${n}/100.`},
+        {val:P+n/16, msg:`You halved the denominator. A point is divided into 32.`},
+        {val:P-n/32, msg:`Wrong direction. The ${n}/32 is added to the whole points, not taken off them.`}
       ],
       steps:[
-        `${q} means ${P} points plus ${n}.${frac} thirty-seconds`,
-        `${n}.${frac}/32 = ${((n+frac/100)/32).toFixed(6)}`,
-        `Price = ${P} + ${((n+frac/100)/32).toFixed(6)} = $${correct.toFixed(6)} per $100 of face`
+        `${q} means ${P} points plus ${n} thirty-seconds &mdash; the same quote as ${P}-${String(n).padStart(2,"0")}`,
+        `${n}/32 = ${(n/32).toFixed(5)}`,
+        `Price = ${P} + ${(n/32).toFixed(5)} = $${correct.toFixed(5)} per $100 of face`
       ]};
   }},
 ];
