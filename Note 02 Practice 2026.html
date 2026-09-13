@@ -1116,11 +1116,12 @@ const TEMPLATES = [
     return {
       unit:"money",
       tol:0.0008, sep:0.0008,
-      text:`A price table shows a Treasury note quoted at <b>${q}</b>.`,
+      text:`A price table that quotes notes and bonds in 32nds after the decimal point shows a
+            Treasury note at <b>${q}</b>.`,
       ask:"What is that per $100 of face value, in dollars?",
       correct,
       cands:[
-        {val:P+n/100, msg:`You read it as a decimal price. ${q} is ${P}-${String(n).padStart(2,"0")} written with a decimal point: notes and bonds are quoted in <b>thirty-seconds of a point</b>, so the ${String(n).padStart(2,"0")} is ${n}/32 = ${(n/32).toFixed(5)}, not ${n}/100.`},
+        {val:P+n/100, msg:`You read it as a decimal price. The table quotes in <b>thirty-seconds of a point</b>, so ${q} is ${P}-${String(n).padStart(2,"0")} written with a decimal point: the ${String(n).padStart(2,"0")} is ${n}/32 = ${(n/32).toFixed(5)}, not ${n}/100.`},
         {val:P+n/16, msg:`You halved the denominator. A point is divided into 32.`},
         {val:P-n/32, msg:`Wrong direction. The ${n}/32 is added to the whole points, not taken off them.`}
       ],
