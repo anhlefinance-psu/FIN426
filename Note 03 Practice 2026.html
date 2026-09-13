@@ -1978,18 +1978,18 @@ const CHOICE_TEMPLATES = [
       /* was "The 2-year zero yield is 5%, so I discount every cash flow at 5%" - which is
          correct if the curve happens to be FLAT at 5%, so the stem's promise of exactly one
          false claim failed at that corner. Naming the upward slope closes it.         */
-      {html:`"The curve slopes upward, and the 2-year zero yield is 5%, so I discount every cash flow of a 2-year bond at 5%."`,
+      {html:`"The curve slopes upward, and the 2-year zero yield is 5% p.a., compounded semiannually, so I discount every cash flow of a 2-year bond at 5%."`,
        bad:true, why:`Wrong. The 2-year zero yield prices a cash flow arriving <em>at</em> two years. The coupons arriving at 0.5, 1 and 1.5 years take their own rates. Using one rate for all of them is what a ytm does, and a ytm is an output, not an input.`,
-       ok:`Trader 1 is right &mdash; each cash flow takes the zero yield for its own date.`},
-      {html:`"A bond with a 6% coupon must have a 6% yield to maturity."`,
+       ok:` &mdash; each cash flow takes the zero yield for its own date.`},
+      {html:`"A bond paying a 6% p.a. coupon semiannually must have a 6% yield to maturity, p.a. compounded semiannually."`,
        bad:true, why:`Wrong. That holds only when the bond trades exactly at par. Above par the ytm is below the coupon rate; below par it is above.`,
-       ok:`Trader 2 is right &mdash; coupon rate and ytm coincide only at par.`},
+       ok:` &mdash; coupon rate and ytm coincide only at par.`},
       {html:`"A 10-year T-note produces 20 STRIPS, because it makes 20 coupon payments."`,
        bad:true, why:`Wrong &mdash; 21. The principal repayment is stripped as a security in its own right, alongside the 20 coupons.`,
-       ok:`Trader 3 is right &mdash; 20 coupons plus the principal makes 21.`},
+       ok:` &mdash; 20 coupons plus the principal makes 21.`},
       {html:`"The zero curve slopes upward, so the discount factors must slope upward too."`,
        bad:true, why:`Wrong, and backwards. Discount factors <em>fall</em> as maturity lengthens whenever rates are positive, whatever the curve is doing. Rising factors would mean a dollar later is worth more than a dollar now.`,
-       ok:`Trader 4 is right &mdash; discount factors fall as maturity lengthens.`},
+       ok:` &mdash; discount factors fall as maturity lengthens.`},
       /* All four true claims replaced 27 Aug 2026. Three were VERBATIM the correct
          option of another template in this bank -- k1 ("the price today of $1 paid at
          that maturity"), kpy3 ("they agree at the shortest maturity") and k7
@@ -2000,13 +2000,13 @@ const CHOICE_TEMPLATES = [
          inside. Replacements come straight from the note and are nobody's keyed answer.
          Check any future claim against every other template's correct option first.  */
       {html:`"T-bills are themselves zero coupon securities."`,
-       bad:false, why:``, ok:`Trader 5 is right. A bill pays no coupon &mdash; only face value, at a maturity of a year or less. Zeros beyond a year have to come from STRIPS.`},
+       bad:false, why:``, ok:`. A bill pays no coupon &mdash; only face value, at a maturity of a year or less. Zeros beyond a year have to come from STRIPS.`},
       {html:`"A zero pays its holder nothing at all until the maturity date."`,
-       bad:false, why:``, ok:`Trader 6 is right. That is what makes it a zero, and it is why it has to be sold at a discount to its face value.`},
+       bad:false, why:``, ok:`. That is what makes it a zero, and it is why it has to be sold at a discount to its face value.`},
       {html:`"Zero yields differ from maturity to maturity &mdash; that is what makes a curve a curve."`,
-       bad:false, why:``, ok:`Trader 7 is right, and it is the whole reason one single rate will not price a bond properly.`},
+       bad:false, why:``, ok:`, and it is the whole reason one single rate will not price a bond properly.`},
       {html:`"You can replicate a zero by combining coupon bonds in the right amounts."`,
-       bad:false, why:``, ok:`Trader 8 is right. Two coupon bonds held in the right quantities reproduce a zero's cash flows exactly, which is what pins its price to theirs.`}
+       bad:false, why:``, ok:`. Two coupon bonds held in the right quantities reproduce a zero's cash flows exactly, which is what pins its price to theirs.`}
     ];
     const wrong = pick(claims.filter(c=>c.bad));
     const rights = shuffle(claims.filter(c=>!c.bad)).slice(0,3);   // now four options in total
@@ -2014,7 +2014,7 @@ const CHOICE_TEMPLATES = [
        from the master list, so a paper could show "Traders 4, 8, 6 and 7" */
     const opts = shuffle([wrong, ...rights]).map((c,i)=>({
       html:`<b>Trader ${i+1}.</b> ` + c.html, correct:c===wrong,
-      msg:c===wrong ? c.why : c.ok }));
+      msg:c===wrong ? c.why : `Trader ${i+1} is right${c.ok}` }));   /* the number shown, not the master-list index */
     return {mode:"choice",
       text:`Four traders are talking on a desk. Exactly one of them has said something false.`,
       ask:"Which one?",
