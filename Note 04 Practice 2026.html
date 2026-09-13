@@ -358,7 +358,7 @@ const TEMPLATES = [{ id:"w1", topic:"forward", name:"One-year forward price of a
       text:`The riskless rate to <b>${t} year${t===1?"":"s"}</b> is <b>${pctS(rt)} p.a.</b> and
             to <b>${T} year${T===1?"":"s"}</b> is <b>${pctS(rT)} p.a.</b>, both compounded
             semiannually.`,
-      ask:`What is the forward rate for a loan running from time ${t} to time ${T}?`,
+      ask:`What is the forward rate for a loan running from time ${t} to time ${T}, p.a. compounded semiannually?`,
       correct,
       cands:[
         {val:rT, msg:`That is the spot rate to time ${T}. The forward rate covers only the stretch from ${t} to ${T}, and because the curve is rising it must sit above the ${T}-year spot rate.`},
@@ -370,7 +370,7 @@ const TEMPLATES = [{ id:"w1", topic:"forward", name:"One-year forward price of a
       steps:[
         `d(${t}) = 1/(1+${(rt/2).toFixed(5)})<sup>${2*t}</sup> = ${dt.toFixed(6)} and d(${T}) = 1/(1+${(rT/2).toFixed(5)})<sup>${2*T}</sup> = ${dT.toFixed(6)}`,
         `The forward discount factor from ${t} to ${T} is d(${T})/d(${t}) = ${(dT/dt).toFixed(6)}`,
-        `Over ${2*(T-t)} six-month period${2*(T-t)===1?"":"s"}: f = 2 &times; (${(dt/dT).toFixed(6)}${2*(T-t)===1?"":`<sup>1/${2*(T-t)}</sup>`} &minus; 1) = ${pctS(correct,4)}`
+        `Over ${2*(T-t)} six-month period${2*(T-t)===1?"":"s"}: f = 2 &times; (${(dt/dT).toFixed(6)}${2*(T-t)===1?"":`<sup>1/${2*(T-t)}</sup>`} &minus; 1) = ${pctS(correct,4)} p.a. compounded semiannually`
       ]};
   }},
 
@@ -446,7 +446,7 @@ const TEMPLATES = [{ id:"w1", topic:"forward", name:"One-year forward price of a
       steps:[
         `That price <em>is</em> the forward discount factor from time 1 to time 2: d(1,2) = ${F.toFixed(4)}`,
         `It spans ${2*(T-t)} six-month periods, so d = 1/(1+f/2)<sup>2</sup> and (1+f/2)<sup>2</sup> = 1/${F.toFixed(4)} = ${(1/F).toFixed(6)}`,
-        `f = 2 &times; (${(1/F).toFixed(6)}<sup>1/2</sup> &minus; 1) = ${pctS(correct,4)}`
+        `f = 2 &times; (${(1/F).toFixed(6)}<sup>1/2</sup> &minus; 1) = ${pctS(correct,4)} p.a. compounded semiannually`
       ]};
   }},
 
@@ -461,7 +461,7 @@ const TEMPLATES = [{ id:"w1", topic:"forward", name:"One-year forward price of a
       unit:"percent",
       text:`The curve is <b>inverted</b>: the six-month rate is <b>${pctS(rt)}</b> and the one-year
             rate is <b>${pctS(rT)}</b>, both p.a. compounded semiannually.`,
-      ask:"What is the forward rate for a six-month loan starting in six months?",
+      ask:"What is the forward rate for a six-month loan starting in six months, p.a. compounded semiannually?",
       correct,
       cands:[
         {val:rT, msg:`That is the one-year spot rate. It is a blend of the first six months at ${pctS(rt)} and the forward six months. Since the blend is <em>below</em> the first leg here, the second leg must be below the blend.`},
@@ -472,7 +472,7 @@ const TEMPLATES = [{ id:"w1", topic:"forward", name:"One-year forward price of a
       steps:[
         `d(0.5) = 1/(1+${(rt/2).toFixed(5)}) = ${(1/(1+rt/2)).toFixed(6)} and d(1) = 1/(1+${(rT/2).toFixed(5)})<sup>2</sup> = ${Math.pow(1+rT/2,-2).toFixed(6)}`,
         `The forward discount factor from 0.5 to 1 is d(1)/d(0.5) = ${(Math.pow(1+rT/2,-2)*(1+rt/2)).toFixed(6)}`,
-        `f = 2 &times; (1/${(Math.pow(1+rT/2,-2)*(1+rt/2)).toFixed(6)} &minus; 1) = ${pctS(correct,4)} — <em>below</em> both spot rates`,
+        `f = 2 &times; (1/${(Math.pow(1+rT/2,-2)*(1+rt/2)).toFixed(6)} &minus; 1) = ${pctS(correct,4)} p.a. compounded semiannually — <em>below</em> both spot rates`,
         `On an upward-sloping curve the forward rate sits above both. Invert the curve and it sits below both. Neither is a rule about forward rates; both follow from the shape.`
       ]};
   }},
@@ -493,25 +493,25 @@ const TEMPLATES = [{ id:"w1", topic:"forward", name:"One-year forward price of a
     const lendStraight = straight > roll;
     return {
       unit:"money",
-      text:`Spot rates (all quoted p.a.) are <b>${pctS(rt)}</b> to six months and <b>${pctS(rT)}</b>
-            to one year. A dealer quotes a six-month-ahead forward rate of <b>${pctS(q,3)} p.a.</b>
-            for a six-month loan.`,
-      ask:`How much riskless profit is available at the one-year horizon, by appropriately combining spot and forward loans, if the notional of those loans at t = 0 is ${money(N)}?`,
+      text:`Spot rates (all quoted p.a. compounded semiannually) are <b>${pctS(rt)}</b> to six months
+            and <b>${pctS(rT)}</b> to one year. A dealer quotes a six-month-ahead forward rate of
+            <b>${pctS(q,3)} p.a. compounded semiannually</b> for a six-month loan.`,
+      ask:`How much riskless profit is available at the one-year horizon, by appropriately combining spot and forward loans, if you borrow and lend ${money(N)} at t = 0?`,
       correct,
       cands:[
-        {val:Math.abs(q-fair)*N, msg:`You applied the rate error to the notional as though it ran a full year. It applies over six months and then has to be carried to the one-year horizon, so scale it properly.`},
-        {val:Math.abs(q-fair)*N/2, msg:`Closer — that is the rate error over six months — but the profit is the difference between the two grown amounts at time 1, not a rate applied to the notional.`},
-        {val:N*Math.pow(1+rT/2,2), msg:`That is what the notional grows to over the year, not the profit.`},
+        {val:Math.abs(q-fair)*N, msg:`You applied the rate error to the starting amount as though it ran a full year. It applies over six months and then has to be carried to the one-year horizon, so scale it properly.`},
+        {val:Math.abs(q-fair)*N/2, msg:`Closer — that is the rate error over six months — but applied to the starting amount. The forward loan is on the balance at six months, which has already grown; the profit is the difference between the two grown amounts at time 1.`},
+        {val:N*Math.pow(1+rT/2,2), msg:`That is what the starting amount grows to over the year, not the profit.`},
         {val:correct*2, msg:`Double-counted. The gap is captured once.`}
       ],
       sep:0.02,
       steps:[
-        `Fair forward rate = ${pctS(fair,4)} p.a.; the dealer quotes ${pctS(q,3)} p.a. &mdash; too ${q<fair?"low":"high"}.`,
-        `<b>Roll.</b> Lend ${money(N)} for six months at ${pctS(rt)} p.a., which grows to ${money(half)}; then lend that on from month 6 to month 12 at the dealer's ${pctS(q,3)}: ${money(half)} &times; (1 + ${(q/2).toFixed(5)}) = <b>${money(roll)}</b>`,
+        `Fair forward rate = ${pctS(fair,4)} p.a. compounded semiannually; the dealer quotes ${pctS(q,3)} p.a. &mdash; too ${q<fair?"low":"high"}.`,
+        `<b>Roll.</b> Lend ${money(N)} for six months at ${pctS(rt)} p.a. compounded semiannually, which grows to ${money(half)}; then lend that on from month 6 to month 12 at the dealer's ${pctS(q,3)}: ${money(half)} &times; (1 + ${(q/2).toFixed(5)}) = <b>${money(roll)}</b>`,
         `<b>Straight.</b> Lend the same ${money(N)} for the full year at ${pctS(rT)} p.a. compounded semiannually: ${money(N)} &times; (1 + ${(rT/2).toFixed(5)})<sup>2</sup> = <b>${money(straight)}</b>`,
         `The ${lendStraight?"straight":"roll"} leg pays more, so <b>lend ${lendStraight?"straight and borrow through the roll":"through the roll and borrow straight"}</b>. At time 0 you borrow ${money(N)} and lend ${money(N)} &mdash; nothing changes hands. At six months the ${money(half)} falling due on one leg is exactly matched by the other. Time 1 is the first date with a net flow.`,
         `Profit = ${money(Math.max(roll,straight))} &minus; ${money(Math.min(roll,straight))} = <b>${money(correct)}</b> at time 1, with no money down and no risk.`,
-        `Note that the ${money(N)} is <em>notional</em>. It scales the profit and nothing else: every cash flow before time 1 nets to zero, so no capital is tied up at any point.`
+        `Note that the ${money(N)} scales the profit and nothing else: every cash flow before time 1 nets to zero, so no capital is tied up at any point.`
       ]};
   }},
 
@@ -562,7 +562,7 @@ const TEMPLATES = [{ id:"w1", topic:"forward", name:"One-year forward price of a
       unit:"percent",
       text:`The six-month spot rate is <b>${pctS(rt)}</b> p.a. and the six-month-ahead forward rate
             for a six-month loan is <b>${pctS(f)}</b> p.a., both compounded semiannually.`,
-      ask:"What one-year spot rate is implied?",
+      ask:"What one-year spot rate is implied, p.a. compounded semiannually?",
       correct,
       cands:[
         {val:(rt+f)/2, msg:`That is the arithmetic average. Growth factors multiply, so the one-year factor is the <em>geometric</em> blend: (1+r<sub>1</sub>/2)<sup>2</sup> = (1+r<sub>0.5</sub>/2)(1+f/2).`},
@@ -573,7 +573,7 @@ const TEMPLATES = [{ id:"w1", topic:"forward", name:"One-year forward price of a
       steps:[
         `Discount factors chain along the timeline: d(1) = d(0.5) &times; d(0.5,1)`,
         `= 1/(1+${(rt/2).toFixed(5)}) &times; 1/(1+${(f/2).toFixed(5)}) = ${(1/((1+rt/2)*(1+f/2))).toFixed(6)}`,
-        `r<sub>1</sub> = 2 &times; ((1/${(1/((1+rt/2)*(1+f/2))).toFixed(6)})<sup>1/2</sup> &minus; 1) = ${pctS(correct,4)}, which sits between ${pctS(rt)} and ${pctS(f)} as it must.`
+        `r<sub>1</sub> = 2 &times; ((1/${(1/((1+rt/2)*(1+f/2))).toFixed(6)})<sup>1/2</sup> &minus; 1) = ${pctS(correct,4)} p.a. compounded semiannually, which sits between ${pctS(rt)} and ${pctS(f)} as it must.`
       ]};
   }},
 
@@ -605,8 +605,9 @@ const TEMPLATES = [{ id:"w1", topic:"forward", name:"One-year forward price of a
     const correct=f-e;
     return {
       unit:"percent",
-      text:`The six-month-ahead forward rate is <b>${pctS(f)} p.a.</b> Investors expect the six-month
-            spot rate six months from now to be <b>${pctS(e)} p.a.</b>`,
+      text:`The six-month-ahead forward rate is <b>${pctS(f)} p.a. compounded semiannually</b>. Investors
+            expect the six-month spot rate six months from now to be <b>${pctS(e)} p.a. compounded
+            semiannually</b>.`,
       ask:"What premium is implied?",
       correct,
       cands:[
@@ -874,7 +875,7 @@ const CHOICE_TEMPLATES = [
       steps:[
         `(1+7%/2)<sup>2</sup> = (1+5%/2)(1+f/2)`,
         `1.071225 = 1.025 &times; (1+f/2), so 1+f/2 = 1.045098`,
-        `f = 9.02% p.a. &mdash; above both spot rates.`
+        `f = 9.02% p.a. compounded semiannually &mdash; above both spot rates.`
       ]};
   }},
 
@@ -885,7 +886,7 @@ const CHOICE_TEMPLATES = [
       {html:`No &mdash; above both when the curve rises, below both when it is inverted`, correct:true,
        msg:`Right. The longer spot rate is a blend of the near period and the forward period. If the blend is above the near leg, the forward leg must be above the blend; if the blend is below, the forward leg is below. The shape decides it.`},
       {html:`Yes &mdash; a forward rate always exceeds the spot rates it is built from`, correct:false,
-       msg:`Only on an upward-sloping curve. With a six-month rate of 7\% and a one-year rate of 5\%, the six-month-ahead forward rate is about 3.02\% &mdash; below both.`},
+       msg:`Only on an upward-sloping curve. With a six-month rate of 7\% and a one-year rate of 5\%, both p.a. compounded semiannually, the six-month-ahead forward rate is about 3.02\% p.a. compounded semiannually &mdash; below both.`},
       {html:`No &mdash; it always sits between the two spot rates`, correct:false,
        msg:`That is where an average would sit. A forward rate is the marginal rate over the later stretch, not an average, so it lies outside the pair.`},
       {html:`Yes, unless the forward period is longer than the spot period`, correct:false,
@@ -897,8 +898,8 @@ const CHOICE_TEMPLATES = [
       ask:"Is that a general rule?",
       options:opts,
       steps:[
-        `Upward (5\% and 7\%): the six-month-ahead forward rate is 9.02\% &mdash; above both.`,
-        `Inverted (7\% and 5\%): it is 3.02\% &mdash; below both.`,
+        `Upward (5\% and 7\%, both p.a. compounded semiannually): the six-month-ahead forward rate is 9.02\% p.a. compounded semiannually &mdash; above both.`,
+        `Inverted (7\% and 5\%, both p.a. compounded semiannually): it is 3.02\% p.a. compounded semiannually &mdash; below both.`,
         `(1+r<sub>1</sub>/2)<sup>2</sup> = (1+r<sub>0.5</sub>/2)(1+f/2). The forward rate is whatever makes the two ways of lending agree.`
       ]};
   }},
@@ -1046,7 +1047,8 @@ const CHOICE_TEMPLATES = [
        msg:`Too strong. It is pinned down by arbitrage and it tells you exactly what rate you can lock in today. What it cannot do is tell you what the future spot rate will be.`}
     ]);
     return {mode:"choice",
-      text:`The six-month-ahead forward rate falls from <b>${a}% p.a.</b> to <b>${b}% p.a.</b>`,
+      text:`The six-month-ahead forward rate falls from <b>${a}%</b> to <b>${b}%</b>, both p.a. compounded
+            semiannually.`,
       ask:"What can you conclude from that alone?",
       options:opts,
       steps:[
