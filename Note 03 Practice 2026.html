@@ -309,24 +309,32 @@ const TEMPLATES = [{ id:"z1", topic:"zero", name:"Price a zero from its zero yie
        exactly -- so working c2 first eliminated one of e2's four options. d3 is now a
        2-year note; these two stay at 1.5 years but can never draw the same coupon:
        c2 takes whole percents, e2 takes halves, d3 takes quarters.
-       The old band also ran to 20%, which no Treasury note has ever paid.            */
-    const c = pick(range(.04,.13,.01));
+       The old band also ran to 20%, which no Treasury note has ever paid.
+       The floor is 5%, not 4% (14 Sep 2026): the one-rate-for-everything slip shrinks with
+       the coupon, and at 4% it sat only 2.3 cents from the key.                         */
+    const c = pick(range(.05,.13,.01));
     const cf = F*c/2;
     const y05=CURVE[0.5], y10=CURVE[1], y15=CURVE[1.5];
     const correct = cf*dfOf(y05,0.5) + cf*dfOf(y10,1) + (F+cf)*dfOf(y15,1.5);
     return {
       unit:"money",
+      /* Tightened 14 Sep 2026. On the house curve the one-rate slip lands 2.9-7.4 cents from
+         the key and annual compounding 6 cents, so at the default 0.25% (about 27 cents)
+         both were marked correct. 0.015% is about 1.5 cents: it still accepts discount
+         factors rounded to four decimals (at most 0.4 cents off) and every present value
+         rounded to the cent (at most 1 cent off).                                        */
+      tol:0.00015, sep:0.0002,
       text:`The zero yield curve reads <b>${pctS(y05)}</b> at 0.5 years, <b>${pctS(y10)}</b>
             at 1 year and <b>${pctS(y15)}</b> at 1.5 years, per annum compounded
             semiannually. Price a <b>1.5-year</b> T-note, face <b>${money(F)}</b>, paying ${art(c)}
             <b>${pctS(c)} p.a.</b> coupon.`,
-      ask:"What is the price of the note?",
+      ask:"What is the price of the note? (To the cent.)",
       correct,
       cands:[
         {val:cf*dfOf(y15,0.5)+cf*dfOf(y15,1)+(F+cf)*dfOf(y15,1.5), msg:`You used the 1.5-year rate for all three cash flows. That is what a <em>yield to maturity</em> does; pricing off the curve discounts each cash flow at its own maturity's zero yield.`},
         {val:F*c*dfOf(y05,0.5)+F*c*dfOf(y10,1)+(F+F*c)*dfOf(y15,1.5), msg:`You used the full annual coupon ${money(F*c)} at each date. Each semiannual coupon is ${money(cf)}.`},
         {val:cf*dfOf(y05,0.5)+cf*dfOf(y10,1)+F*dfOf(y15,1.5), msg:`You left the final coupon out. At 18 months the bond pays the last coupon <em>and</em> the face value: ${money(F+cf)}.`},
-        {val:cf/(1+y05)+cf/Math.pow(1+y10,1)+(F+cf)/Math.pow(1+y15,1.5), msg:`You compounded annually. Halve each rate and double each period count.`}
+        {val:cf/Math.pow(1+y05,0.5)+cf/(1+y10)+(F+cf)/Math.pow(1+y15,1.5), msg:`You compounded annually. Halve each rate and double each period count.`}
       ],
       steps:[
         `Coupon per period = ${pctS(c)} &times; ${money(F)} &divide; 2 = ${money(cf)}`,
@@ -451,6 +459,11 @@ const TEMPLATES = [{ id:"z1", topic:"zero", name:"Price a zero from its zero yie
     const correct = P/cf;
     return {
       unit:"number",
+      /* Tolerance tightened 14 Sep 2026. At the default 0.25% the "coupon stripped out
+         undiscounted" slip, as little as 0.018% from the key on this grid, was marked
+         correct - and the question asks for six decimals. It is listed first so a quiz,
+         which takes the first three kept distractors, offers it.                      */
+      tol:0.0001, sep:0.00015,
       /* This is a generic "bond", not a T-note, so the semiannual convention does not
          cover it - and with a single payment the answer turns entirely on whether that
          payment is F + c/2 or F + c. Stated explicitly; the uniformity sweep should not
@@ -461,10 +474,10 @@ const TEMPLATES = [{ id:"z1", topic:"zero", name:"Price a zero from its zero yie
       ask:"What six-month discount factor d<sub>0.5</sub> does that imply? (Six decimals.)",
       correct,
       cands:[
-        {val:P/F, msg:`You divided by the face value alone. The bond's single cash flow at six months is the face value <em>plus</em> the final coupon: ${money(F)} + ${moneyX(F*c/2)} = ${moneyX(cf)}.`},
+        {val:(P-F*c/2)/F, msg:`You stripped the coupon out of the price and discounted only the face. Both arrive at the same date, so discount them together.`},
         {val:P/(F+F*c), msg:`You added a full year's coupon. The bond matures in six months, so it pays one semiannual coupon of ${moneyX(F*c/2)}.`},
         {val:cf/P, msg:`You inverted it. d<sub>0.5</sub> = price &divide; cash flow, and must be less than 1.`},
-        {val:(P-F*c/2)/F, msg:`You stripped the coupon out of the price and discounted only the face. Both arrive at the same date, so discount them together.`}
+        {val:P/F, msg:`You divided by the face value alone. The bond's single cash flow at six months is the face value <em>plus</em> the final coupon: ${money(F)} + ${moneyX(F*c/2)} = ${moneyX(cf)}.`}
       ],
       steps:[
         `The bond's only cash flow is ${money(F)} + ${pctS(c,3)}&times;${money(F)}&divide;2 = ${moneyX(cf)} at six months`,
@@ -488,6 +501,11 @@ const TEMPLATES = [{ id:"z1", topic:"zero", name:"Price a zero from its zero yie
     const correct = (P - cf1*d05)/cf2;
     return {
       unit:"number",
+      /* Tolerance tightened 14 Sep 2026. At the default 0.25% the "coupon subtracted at
+         face value" slip, at least 0.022% from the key, was marked correct. 0.01% still
+         accepts a coupon PV rounded to the cent (at most 0.005% off). Listed second so a
+         quiz, which takes the first three kept distractors, offers it.                */
+      tol:0.0001, sep:0.00015,
       text:`You already know <b>d<sub>0.5</sub> = ${d05.toFixed(6)}</b>. A <b>1-year</b>
             bond, face <b>${money(F)}</b>, coupon <b>${pctS(c,3)} p.a.</b> paid
             semiannually, trades at <b>\$${P.toFixed(4)}</b>.`,
@@ -495,9 +513,9 @@ const TEMPLATES = [{ id:"z1", topic:"zero", name:"Price a zero from its zero yie
       correct,
       cands:[
         {val:P/cf2, msg:`You ignored the six-month coupon. Strip its present value out first: ${moneyX(P)} &minus; ${moneyX(cf1)}&times;${d05.toFixed(6)}, then divide by ${moneyX(cf2)}.`},
-        {val:P/F, msg:`You divided the price straight by the face value, ignoring both coupons. The buyer is paying for three things: two coupons and the principal.`},
+        {val:(P-cf1)/cf2, msg:`You subtracted the coupon at face value instead of its present value. It arrives in six months, so it is worth ${moneyX(cf1)}&times;${d05.toFixed(6)} = ${money(cf1*d05)} today.`},
         {val:cf2/(P-cf1*d05), msg:`You inverted the last step. A discount factor is price &divide; cash flow and must be below 1; anything above 1 would mean a dollar next year is worth more than a dollar today.`},
-        {val:(P-cf1)/cf2, msg:`You subtracted the coupon at face value instead of its present value. It arrives in six months, so it is worth ${moneyX(cf1)}&times;${d05.toFixed(6)} = ${money(cf1*d05)} today.`}
+        {val:P/F, msg:`You divided the price straight by the face value, ignoring both coupons. The buyer is paying for three things: two coupons and the principal.`}
       ],
       steps:[
         `Cash flows: ${moneyX(cf1)} at 6 months, ${moneyX(cf2)} at 12 months`,

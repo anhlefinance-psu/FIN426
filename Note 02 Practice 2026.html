@@ -425,33 +425,60 @@ const TEMPLATES = [
 
 /* ------------------------------------------------ uniform price auction */
 { id:"a1", topic:"auction", name:"Uniform price auction: the stop-out", gen(){
-    const size = pick([1000,2000,5000]);
-    const base = pick(range(.02,.05,.0025));
-    const ys = [base, base+0.004, base+0.009, base+0.017, base+0.025];
-    const qs = [0.10,0.30,0.35,0.20,0.15].map(x=>Math.round(size*x/10)*10);
-    let cum=0, stop=null, marginal=null;
-    for(let k=0;k<ys.length;k++){
-      if (cum+qs[k] >= size){ stop=ys[k]; marginal=k; break; }
-      cum+=qs[k];
-    }
-    const correct = stop;
-    const rows = ys.map((y,k)=>`${String.fromCharCode(65+k)} &mdash; ${pctS(y,3)} for ${money(qs[k])}`).join("<br>");
+    /* Redesigned 14 Sep 2026. The bid sizes used to be fixed shares of the offering
+       (10/30/35/20/15%), so E was always the marginal bidder: the answer was always the
+       highest bid listed, nobody ever lost, and every stop-out was a whole eighth. Now the
+       offering runs out at B, C, D or E, and most stop-outs fall between eighths, which
+       makes the coupon a live wrong answer to a question that asks for the yield. Bids sit
+       on a 0.05% grid; a stop-out only 2.5bp above its eighth is redrawn, because the coupon
+       has to sit more than twice the 0.25% match tolerance away to be diagnosed. */
+    const L = k => String.fromCharCode(65+k);
+    const list = a => a.length<2 ? a.join("") : a.slice(0,-1).join(", ")+" and "+a[a.length-1];
+    /* Drawn once, outside the retry loop: redrawing it on every retry skewed the partial
+       fill to C or D on about 90% of draws. */
+    const m = pick([1,2,2,3,3,4]);                  // B and E one draw in six each
+    let size, ys, qs, cum, award, stop, residue, coupon, onEighth, won, losers, correct, rows, cands=[];
+    do {
+      size = pick([1000,2000,5000]);
+      ys = [pick(range(.02,.05,.0005))];
+      for (let k=1;k<5;k++) ys.push(+(ys[k-1]+pick(range(.003,.008,.0005))).toFixed(6));
+      qs = ys.map(()=>pick([2,3,4,5,6,7,8,9,10,11,12])*size/20);
+      cum = qs.slice(0,m).reduce((a,b)=>a+b,0);
+      award = size-cum;
+      stop = ys[m];
+      residue = Math.round(stop*1e5)%125;          // in thousandths of a percent; an eighth is 125
+      onEighth = residue===0;
+      coupon = (Math.round(stop*1e5)-residue)/1e5;
+      if (!(cum<size && cum+qs[m]>size)) continue;
+      won = qs.map((q,k)=> k<m ? q : k===m ? award : 0);
+      losers = ys.slice(m+1).map((y,k)=>L(m+1+k));
+      correct = stop;
+      rows = ys.map((y,k)=>`${L(k)} &mdash; ${pctS(y,3)} for ${money(qs[k])}`).join("<br>");
+      cands = [];
+      if (!onEighth) cands.push({val:coupon, msg:`That is the <em>coupon</em>, not the yield. The Treasury sets the coupon at the largest eighth at or below the stop-out, ${pctS(coupon,3)}, so the note sells a little below par &mdash; and buying below par lifts every winner's yield to the stop-out, ${pctS(stop,3)}.`});
+      cands.push({val:ys[m-1], msg:`That is the bid just below the stop-out. Bidder ${L(m)} is the one whose bid is only partly filled, and it is <em>their</em> yield that sets the rate for everyone.`});
+      if (m>1) cands.push({val:ys[0], msg:`That is the <em>lowest</em> bid. The Treasury fills from the lowest yield upward because low yields are cheap borrowing &mdash; but the rate everyone is paid is the last one it had to accept, not the first.`});
+      if (m<4) cands.push({val:ys[m+1], msg:`Bidder ${L(m+1)} lost: the ${money(size)} was used up before the Treasury reached ${pctS(ys[m+1],3)}. The stop-out is the highest yield actually <em>accepted</em>, which is bidder ${L(m)}'s.`});
+      if (m<3) cands.push({val:ys[4], msg:`That is the highest bid submitted, and it lost. The stop-out is the highest yield actually <em>accepted</em>, which is where the Treasury's ${money(size)} runs out.`});
+      cands.push({val:ys.reduce((a,y,k)=>a+y*won[k],0)/size, msg:`That is the average of the winning bids, weighted by what each was awarded. Averaging was the old multiple-price convention for non-competitive bidders; under single-price everyone receives the stop-out.`});
+    } while (!(cum<size && cum+qs[m]>size)
+             || (!onEighth && (residue<50 || (stop-coupon)/stop<0.006 || ys.some(y=>near(y,coupon,0.005))))
+             || cands.some(c=>near(c.val,correct,REL_MATCH)) || usable(correct,cands,0.005).length<3);
     return {
       unit:"percent",
+      sep:0.005,
       text:`The Treasury is auctioning <b>${money(size)} of face value</b> in a single-price <b>note</b> auction.
-            The competitive bids, all yields p.a., are:<br><br>${rows}`,
+            The competitive bids (yields p.a., compounded semiannually) are:<br><br>${rows}`,
       ask:"What yield does every winning bidder receive?",
       correct,
-      cands:[
-        {val:ys[0], msg:`That is the <em>lowest</em> bid. The Treasury fills from the lowest yield upward because low yields are cheap borrowing &mdash; but the rate everyone is paid is the last one it had to accept, not the first.`},
-        {val:ys[ys.length-1], msg:`That is the highest bid submitted, and it lost. The stop-out is the highest yield actually <em>accepted</em>, which is where the Treasury's ${money(size)} runs out.`},
-        {val:ys.reduce((a,b,k)=>a+b*qs[k],0)/qs.reduce((a,b)=>a+b,0), msg:`That is a quantity-weighted average of all the bids. Averaging was the old multiple-price convention for non-competitive bidders; under single-price everyone receives the stop-out.`},
-        {val:ys[Math.max(0,marginal-1)], msg:`That is the bid just below the stop-out. Bidder ${String.fromCharCode(65+marginal)} is the one whose bid is only partly filled, and it is <em>their</em> yield that sets the rate for everyone.`}
-      ],
+      cands,
       steps:[
-        `Fill from the lowest yield upward: ${ys.slice(0,marginal).map((y,k)=>`${String.fromCharCode(65+k)} takes ${money(qs[k])}`).join(", ")}${marginal>0?", ":""}leaving ${money(size-qs.slice(0,marginal).reduce((a,b)=>a+b,0))} still to raise`,
-        `Bidder ${String.fromCharCode(65+marginal)} at ${pctS(stop,3)} is filled only partly &mdash; they are the marginal bidder`,
-        `Single-price auction: every winner is paid the highest accepted yield, ${pctS(correct,3)}`,
+        `Fill from the lowest yield upward: ${qs.slice(0,m).map((q,k)=>`${L(k)} takes ${money(q)}`).join(", ")}, leaving ${money(award)} still to award`,
+        `Bidder ${L(m)} at ${pctS(stop,3)} asked for ${money(qs[m])} but receives only ${money(award)} &mdash; the marginal bidder${losers.length ? `. ${list(losers)} ${losers.length===1?"loses":"lose"} entirely` : ""}`,
+        `Single-price auction: every winner receives the highest accepted yield, ${pctS(correct,3)}`,
+        onEighth
+          ? `${pctS(stop,3)} is itself a whole eighth, so the coupon is ${pctS(stop,3)} and the note sells at par`
+          : `The coupon is then set at ${pctS(coupon,3)}, the largest eighth at or below ${pctS(stop,3)}. The note sells a little below par, and that is what lifts every winner's yield to ${pctS(stop,3)}`,
         `So the bidders below the stop-out do better than they asked for.`
       ]};
   }},
@@ -846,30 +873,49 @@ const TEMPLATES = [
 
 /* --------------------------------- the partial fill at the stop-out (S6) */
 { id:"pf1", topic:"auction", name:"How much the marginal bidder gets", gen(){
-    const size=pick([1000,2000,5000]);
-    const base=pick(range(.02,.05,.0025));
-    const ys=[base, base+0.004, base+0.009, base+0.017];
-    const qs=[0.10,0.30,0.40,0.25].map(x=>Math.round(size*x/10)*10);
-    let cum=0, marg=null;
-    for(let k=0;k<ys.length;k++){ if(cum+qs[k]>=size){ marg=k; break; } cum+=qs[k]; }
-    const correct=size-cum;
-    const rows=ys.map((y,k)=>`${String.fromCharCode(65+k)} &mdash; ${pctS(y,3)} for ${money(qs[k])}`).join("<br>");
+    /* Redesigned 14 Sep 2026. The bid sizes used to be fixed shares (10/30/40/25%), so D
+       was always the marginal bidder, always received 20% of the offering, and the question
+       named D - the student never had to find where the offering runs out. Now it can run
+       out at B, C, D or E, and the question does not say who is partly filled. */
+    const L = k => String.fromCharCode(65+k);
+    const list = a => a.length<2 ? a.join("") : a.slice(0,-1).join(", ")+" and "+a[a.length-1];
+    const m=pick([1,2,2,3,3,4]);                    // drawn once; see a1
+    let size, ys, qs, cum, correct, cands;
+    do {
+      size=pick([1000,2000,5000]);
+      ys=[pick(range(.02,.05,.0005))];
+      for (let k=1;k<5;k++) ys.push(+(ys[k-1]+pick(range(.003,.008,.0005))).toFixed(6));
+      qs=ys.map(()=>pick([2,3,4,5,6,7,8,9,10,11,12])*size/20);
+      cum=qs.slice(0,m).reduce((a,b)=>a+b,0);
+      correct=size-cum;
+      /* the same bids filled from the top down: what that order's partly filled bidder gets */
+      let left=size, rev=0;
+      for (let k=4;k>=0;k--){ if (qs[k]>left){ rev=left; break; } left-=qs[k]; }
+      cands=[
+        {val:qs[m], msg:`That is what bidder ${L(m)}, the marginal bidder, <em>asked</em> for. ${m===1?"The bidder below them has":"The bidders below them have"} already taken ${money(cum)} of the ${money(size)}, so only ${money(correct)} is left to give them.`},
+        {val:cum, msg:`That is the amount already awarded to ${m===1?"the bidder":"the bidders"} <em>below</em> ${L(m)}. The remainder, ${money(correct)}, is what ${L(m)} receives.`},
+        {val:size-qs[m], msg:`That subtracts what ${L(m)} requested from the offering size, which is not the calculation. What matters is how much was left after the cheaper bids were filled.`},
+        {val:size, msg:`That is the whole offering. It is shared out from the lowest yield upward, and by the time the Treasury reaches ${L(m)} most of it is gone.`}
+      ];
+      if (rev>0) cands.push({val:rev, msg:`You filled from the <em>highest</em> yield downward. That takes the most expensive bids first, the opposite of what a borrower wants. Filled from the lowest yield up, the marginal bidder is ${L(m)}, who receives ${money(correct)}.`});
+    /* A wrong method can land exactly on the key - the bidders below taking half the
+       offering makes "what they took" equal "what is left". Redraw, or that slip scores. */
+    } while (!(cum<size && cum+qs[m]>size) || cands.some(c=>near(c.val,correct,REL_MATCH))
+             || usable(correct,cands).length<3);
+    const losers=ys.slice(m+1).map((y,k)=>L(m+1+k));
+    const rows=ys.map((y,k)=>`${L(k)} &mdash; ${pctS(y,3)} for ${money(qs[k])}`).join("<br>");
     return {
       unit:"money",
       text:`The Treasury is auctioning <b>${money(size)} of face value</b> in a <b>note</b> auction. The competitive
-            bids, all yields p.a., are:<br><br>${rows}`,
-      ask:`How much <b>face value</b> is bidder ${String.fromCharCode(65+marg)} — the marginal bidder — actually awarded?`,
+            bids (yields p.a., compounded semiannually) are:<br><br>${rows}`,
+      ask:`How much <b>face value</b> does the marginal bidder — the one only partly filled — actually receive?`,
       correct,
-      cands:[
-        {val:qs[marg], msg:`That is what bidder ${String.fromCharCode(65+marg)} <em>asked</em> for. The bidders below them have already taken ${money(cum)} of the ${money(size)}, so only ${money(correct)} is left to give them.`},
-        {val:size, msg:`That is the whole offering. It is shared out from the lowest yield upward, and by the time the Treasury reaches ${String.fromCharCode(65+marg)} most of it is gone.`},
-        {val:cum, msg:`That is the amount already awarded to the bidders <em>below</em> ${String.fromCharCode(65+marg)}. The remainder is what ${String.fromCharCode(65+marg)} receives.`},
-        {val:size-qs[marg], msg:`That subtracts what ${String.fromCharCode(65+marg)} requested from the offering size, which is not the calculation. What matters is how much was left after the cheaper bids were filled.`}
-      ],
+      cands,
       steps:[
-        `Fill from the lowest yield up: ${ys.slice(0,marg).map((y,k)=>`${String.fromCharCode(65+k)} takes ${money(qs[k])}`).join(", ") || "nobody is ahead of them"}`,
-        `Awarded so far: ${money(cum)} of ${money(size)}`,
-        `Bidder ${String.fromCharCode(65+marg)} asked for ${money(qs[marg])} and receives the remaining ${money(correct)}`,
+        `Fill from the lowest yield up: ${qs.slice(0,m).map((q,k)=>`${L(k)} takes ${money(q)}`).join(", ")}`,
+        `Awarded so far: ${money(cum)} of ${money(size)}, leaving ${money(correct)}`,
+        `Bidder ${L(m)} asked for ${money(qs[m])}, more than is left, so ${L(m)} is the marginal bidder and receives the remaining ${money(correct)}`,
+        ...(losers.length ? [`${list(losers)} ${losers.length===1?"loses":"lose"} entirely &mdash; the offering is gone before the Treasury reaches ${losers.length===1?"that bid":"those bids"}`] : []),
         `Being marginal means being partly filled &mdash; and setting the rate everyone is paid.`
       ]};
   }},
@@ -986,7 +1032,7 @@ const TEMPLATES = [
       unit:"percent", tol:0.004,
       text:`The Treasury is auctioning <b>$${size} million of face value</b> in a <b>note</b> auction. It receives <b>$${nonComp} million</b> of
             <b>non-competitive</b> bids, which name no rate and are filled first, off the top. The
-            competitive bids are:<br><br>${rows}<br><br>The remaining
+            competitive bids (yields p.a., compounded semiannually) are:<br><br>${rows}<br><br>The remaining
             <b>$${size-nonComp} million</b> is awarded competitively, from the lowest yield upward.`,
       ask:`What percentage of its request does bidder ${L(marg)} — the marginal bidder — actually receive?`,
       correct,
@@ -2307,8 +2353,8 @@ const CHOICE_TEMPLATES = [
     const s=[
       `<b>Step 1.</b> Rank the bids by yield: A ${pctS(ys[0],1)}, B ${pctS(ys[1],1)}, C ${pctS(ys[2],1)}, D ${pctS(ys[3],1)}`,
       fault==="order"
-        ? `<b>Step 2.</b> Fill from the highest yield downward until ${money(size)} is raised`
-        : `<b>Step 2.</b> Fill from the lowest yield upward until ${money(size)} is raised`,
+        ? `<b>Step 2.</b> Fill from the highest yield downward until the ${money(size)} of face value is awarded`
+        : `<b>Step 2.</b> Fill from the lowest yield upward until the ${money(size)} of face value is awarded`,
       step3, step4
     ];
     const fine=[
@@ -2325,7 +2371,7 @@ const CHOICE_TEMPLATES = [
     }
     return {
       mode:"choice",
-      text:`The Treasury is auctioning ${money(size)} of face value. Bids (all yields p.a.): A ${pctS(ys[0],1)} for ${money(qs[0])}, B
+      text:`The Treasury is auctioning ${money(size)} of face value. Bids (yields p.a., compounded semiannually): A ${pctS(ys[0],1)} for ${money(qs[0])}, B
             ${pctS(ys[1],1)} for ${money(qs[1])}, C ${pctS(ys[2],1)} for ${money(qs[2])}, D
             ${pctS(ys[3],1)} for ${money(qs[3])}. A student works through the auction:`,
       ask:"Which step introduces the mistake?",
@@ -2347,8 +2393,8 @@ const CHOICE_TEMPLATES = [
     return {
       mode:"choice",
       text:`Before a 10-year note auction, the new issue trades <b>when-issued</b> at a yield of
-            <b>${wi.toFixed(2)}%</b>. At the auction the stop-out comes in at
-            <b>${stop.toFixed(2)}%</b>.`,
+            <b>${wi.toFixed(2)}% p.a.</b>, compounded semiannually. At the auction the stop-out comes in at
+            <b>${stop.toFixed(2)}% p.a.</b>.`,
       ask:"Was the auction stronger or weaker than the market expected, and how do you know?",
       options: shuffle([
         {html:`Stronger &mdash; investors accepted a lower yield, and so paid a higher price, than the when-issued market implied`, correct:strong,
