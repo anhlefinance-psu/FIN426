@@ -259,6 +259,10 @@ const TEMPLATES = [{ id:"p1", topic:"mechanics", name:"Repo interest over the te
     const correct = V*(1-h);
     return {
       unit:"money",
+      /* Tightened 14 Sep 2026. Dividing by (1 + h) is h^2/(1 - h^2) from the key - 0.01% at a
+         1% haircut, 0.25% at 5% - so at the default 0.25% tolerance it always scored. The
+         answer is exact arithmetic, so 0.002% costs an honest student nothing.        */
+      tol:0.00002, sep:0.00005,
       text:`Your collateral is worth <b>${money(V)}</b> and the lender applies a
             <b>${pctS(h,1)}</b> haircut.`,
       ask:"How much cash will they lend you?",

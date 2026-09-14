@@ -560,15 +560,20 @@ const TEMPLATES = [{ id:"w1", topic:"forward", name:"One-year forward price of a
     const correct=2*(Math.sqrt((1+rt/2)*(1+f/2))-1);
     return {
       unit:"percent",
+      /* Tightened 14 Sep 2026 (Anh: count the average as wrong). The arithmetic average is
+         never more than 1bp from the key, so at the default 0.25% it always scored and its
+         feedback never showed. Its smallest relative gap on this grid is 1.75e-4; an answer
+         typed to four decimals is off by at most 1.4e-5. Listed second so a quiz offers it. */
+      tol:0.0001, sep:0.00015,
       text:`The six-month spot rate is <b>${pctS(rt)}</b> p.a. and the six-month-ahead forward rate
             for a six-month loan is <b>${pctS(f)}</b> p.a., both compounded semiannually.`,
-      ask:"What one-year spot rate is implied, p.a. compounded semiannually?",
+      ask:"What one-year spot rate is implied, p.a. compounded semiannually? (Work it out exactly — no shortcuts or approximations.)",
       correct,
       cands:[
-        {val:(rt+f)/2, msg:`That is the arithmetic average. Growth factors multiply, so the one-year factor is the <em>geometric</em> blend: (1+r<sub>1</sub>/2)<sup>2</sup> = (1+r<sub>0.5</sub>/2)(1+f/2).`},
         {val:rt+f, msg:`You added the two annualised rates. Each covers only six months.`},
-        {val:f-rt, msg:`That is the gap between them, not a level.`},
-        {val:f, msg:`That is the forward rate. The one-year spot rate is a blend of it and the near rate, so it must sit between them.`}
+        {val:(rt+f)/2, msg:`That is the arithmetic average. Growth factors multiply, so the one-year factor is the <em>geometric</em> blend: (1+r<sub>1</sub>/2)<sup>2</sup> = (1+r<sub>0.5</sub>/2)(1+f/2).`},
+        {val:f, msg:`That is the forward rate. The one-year spot rate is a blend of it and the near rate, so it must sit between them.`},
+        {val:f-rt, msg:`That is the gap between them, not a level.`}
       ],
       steps:[
         `Discount factors chain along the timeline: d(1) = d(0.5) &times; d(0.5,1)`,
