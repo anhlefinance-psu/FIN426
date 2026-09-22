@@ -228,6 +228,9 @@ const TEMPLATES = [{ id:"z1", topic:"zero", name:"Price a zero from its zero yie
     const correct = zPrice(F,y,n);
     return {
       unit:"money",
+      /* Tolerance set 22 Sep 2026 from the full-grid check (gridall.js 03): the annual-compounding slip was inside 0.25% on 4 draws (smallest
+         gap 0.22%). An answer to the cent is off by at most 0.04%. */
+      tol:0.001, sep:0.0018,
       text:`A zero coupon bond has a face value of <b>${money(F)}</b> and matures in
             <b>${n} year${n===1?"":"s"}</b>. Its zero yield is <b>${pctS(y)} p.a.,
             compounded semiannually</b>.`,
@@ -349,14 +352,19 @@ const TEMPLATES = [{ id:"z1", topic:"zero", name:"Price a zero from its zero yie
     const correct = dfOf(y,n);
     return {
       unit:"number",
+      /* Tolerance set 22 Sep 2026 from the full-grid check (gridall.js 03): the annual-compounding slip was inside the 0.25% match on 109 of 175
+         draws, and on Quiz 2 Version 2 it picked the key. Its smallest gap is 0.022%; six decimals
+         typed are off by < 0.0001%. Listed third so a quiz swaps it for exactly one option. */
+      tol:0.0001, sep:0.00018,
       text:`The zero yield for the <b>${n}-year</b> maturity is <b>${pctS(y)} p.a.,
             compounded semiannually</b>.`,
       ask:`What is the discount factor d<sub>${n}</sub>? (Give it to six decimals.)`,
       correct,
+      /* order: growth factor, periods doubled, annual slip, rate halved (22 Sep 2026) */
       cands:[
         {val:Math.pow(1+y/2,2*n), msg:`That is the <em>growth</em> factor, the reciprocal of what you want. A discount factor brings a future dollar back to today, so it must be less than 1.`},
-        {val:1/Math.pow(1+y,n), msg:`You compounded annually. d = 1/(1+y/2)<sup>2n</sup> = 1/(1+${(y/2).toFixed(5)})<sup>${2*n}</sup>.`},
         {val:1/Math.pow(1+y,2*n), msg:`You doubled the periods but did not halve the rate.`},
+        {val:1/Math.pow(1+y,n), msg:`You compounded annually. d = 1/(1+y/2)<sup>2n</sup> = 1/(1+${(y/2).toFixed(5)})<sup>${2*n}</sup>.`},
         {val:1/Math.pow(1+y/2,n), msg:`You halved the rate but did not double the periods. ${n} years is ${2*n} six-month periods.`}
       ],
       steps:[
@@ -574,7 +582,9 @@ const TEMPLATES = [{ id:"z1", topic:"zero", name:"Price a zero from its zero yie
 { id:"z3", topic:"zero", also:["df"], name:"Price a zero from a discount factor", gen(){
     const n = pick([1,1.5,2,2.5,3,4,5]);
     const F = pick([1000,5000,10000,25000]);
-    const d = dfOf(CURVE[n],n);
+    /* 22 Sep 2026: worked from the figures as printed, formula first (Anh's rules), so every result
+       reproduces from the page (gridall.js flagged the last digit). */
+    const d = +dfOf(CURVE[n],n).toFixed(6);
     const correct = F*d;
     return {
       unit:"money",
@@ -590,7 +600,7 @@ const TEMPLATES = [{ id:"z1", topic:"zero", name:"Price a zero from its zero yie
       ],
       steps:[
         `A discount factor is the price today of $1 paid at that maturity`,
-        `Price = ${money(F)} &times; ${d.toFixed(6)} = ${money(correct)}`
+        `Price = face value &times; discount factor = ${money(F)} &times; ${d.toFixed(6)} = ${money(correct)}`
       ]};
   }},
 
@@ -598,7 +608,9 @@ const TEMPLATES = [{ id:"z1", topic:"zero", name:"Price a zero from its zero yie
     const na = pick([1,1.5,2]);
     const nb = pick([3,4,5]);
     const F = 1000;
-    const pa = zPrice(F,CURVE[na],na), pb = zPrice(F,CURVE[nb],nb);
+    /* 22 Sep 2026: worked from the figures as printed, formula first (Anh's rules), so every result
+       reproduces from the page (gridall.js flagged the last digit). */
+    const pa = +zPrice(F,CURVE[na],na).toFixed(2), pb = +zPrice(F,CURVE[nb],nb).toFixed(2);
     const correct = pa - pb;
     return {
       unit:"money",
@@ -614,9 +626,10 @@ const TEMPLATES = [{ id:"z1", topic:"zero", name:"Price a zero from its zero yie
         {val:(CURVE[nb]-CURVE[na])*F, msg:`You applied the yield difference to the face value. Yields do not translate into price differences that directly &mdash; you have to price each zero.`}
       ],
       steps:[
+        `Price of a zero = face / (1 + y/2)<sup>2n</sup>`,
         `${na}-year zero: ${money(F)}/(1+${(CURVE[na]/2).toFixed(5)})<sup>${2*na}</sup> = ${money(pa)}`,
         `${nb}-year zero: ${money(F)}/(1+${(CURVE[nb]/2).toFixed(5)})<sup>${2*nb}</sup> = ${money(pb)}`,
-        `Difference = ${money(pa)} &minus; ${money(pb)} = ${money(correct)}`
+        `Difference = ${na}-year price &minus; ${nb}-year price = ${money(pa)} &minus; ${money(pb)} = ${money(correct)}`
       ]};
   }},
 
@@ -734,23 +747,27 @@ const TEMPLATES = [{ id:"z1", topic:"zero", name:"Price a zero from its zero yie
       unit:"number",
       /* the "same rate for both coupons" slip is worth only a fraction of a
          percent here, so the separation has to be tighter than the default */
-      tol:0.0008, sep:0.0008,
+      /* Tolerance set 22 Sep 2026 from the full-grid check (gridall.js 03): discounting both coupons at d0.5 was inside the old 0.08%
+         match on 34 of 64 draws, and on Quiz 2's Sample it picked the key. Smallest gap 0.033%. */
+      tol:0.0001, sep:0.00025,
       text:`You have <b>d<sub>0.5</sub> = ${d05.toFixed(6)}</b> and
             <b>d<sub>1.0</sub> = ${d10.toFixed(6)}</b>. A <b>1.5-year</b> T-note with
             <b>${money(F)}</b> face trades <b>at par</b>, paying ${art(c15)}
             <b>${pctS(c15,3)} p.a.</b> coupon.`,   /* 3dp: see pb2 */
       ask:"What is d<sub>1.5</sub>? (Six decimals.)",
       correct,
+      /* order: slip third, so a quiz swaps it for exactly one option (22 Sep 2026) */
       cands:[
-        {val:(F - 2*cpn*d05)/last, msg:`You discounted <em>both</em> coupons at d<sub>0.5</sub>. The second one arrives at 1.0, so it is worth ${moneyX(cpn)}&times;${d10.toFixed(6)} = ${money(cpn*d10)}, not ${money(cpn*d05)}. This is the single most common slip on this material.`},
         {val:(F - cpn*(d05+d10))/F, msg:`You divided by the face value alone. The 1.5-year cash flow is ${money(F)} + ${moneyX(cpn)} = ${moneyX(last)}.`},
         {val:F/last, msg:`You ignored both coupons. The buyer is paying for all three cash flows.`},
+        {val:(F - 2*cpn*d05)/last, msg:`You discounted <em>both</em> coupons at d<sub>0.5</sub>. The second one arrives at 1.0, so it is worth ${moneyX(cpn)}&times;${d10.toFixed(6)} = ${money(cpn*d10)}, not ${money(cpn*d05)}. This is the single most common slip on this material.`},
         {val:d10, msg:`That is d<sub>1.0</sub>, which you already had. Each further maturity gives a smaller factor.`}
       ],
       steps:[
         `Cash flows: ${moneyX(cpn)} at 0.5, ${moneyX(cpn)} at 1.0, ${moneyX(last)} at 1.5`,
-        `PV of the two coupons = ${moneyX(cpn)}&times;${d05.toFixed(6)} + ${moneyX(cpn)}&times;${d10.toFixed(6)} = ${money(cpn*d05)} + ${money(cpn*d10)} = ${money(cpn*(d05+d10))}`,
-        `d<sub>1.5</sub> = (${money(F)} &minus; ${money(cpn*(d05+d10))}) / ${moneyX(last)} = ${correct.toFixed(6)}`,
+        `At par the price is the face value: ${money(F)} = c &times; d<sub>0.5</sub> + c &times; d<sub>1.0</sub> + (face + c) &times; d<sub>1.5</sub>`,
+        `So d<sub>1.5</sub> = (face &minus; c &times; (d<sub>0.5</sub> + d<sub>1.0</sub>)) / (face + c) = (${money(F)} &minus; ${moneyX(cpn)} &times; (${d05.toFixed(6)} + ${d10.toFixed(6)})) / ${moneyX(last)}`,
+        `= (${money(F)} &minus; ${(cpn*(+d05.toFixed(6) + +d10.toFixed(6))).toFixed(6)}) / ${moneyX(last)} = <b>${correct.toFixed(6)}</b>`,
         `Each coupon takes the discount factor for its <em>own</em> date.`
       ]};
   }},
@@ -869,7 +886,9 @@ const TEMPLATES = [{ id:"z1", topic:"zero", name:"Price a zero from its zero yie
     const cpnB=F*cB/2, lastB=F+cpnB;
     const target=pick([100000,250000,500000,1000000]);
     const NB=target/lastB;
-    const correct=NB*cpnB/cfA;
+    /* 22 Sep 2026: worked from the figures as printed, formula first (Anh's rules), so every result
+       reproduces from the page (gridall.js flagged the last digit). */
+    const correct=+(NB*cpnB).toFixed(2)/cfA;
     return {
       unit:"number",
       /* The unit count was never needed - the answer is the coupon divided by the short
@@ -895,7 +914,7 @@ const TEMPLATES = [{ id:"z1", topic:"zero", name:"Price a zero from its zero yie
       steps:[
         `Coupon to cancel at t = 0.5 = ${money(NB*cpnB)}`,
         `Each unit shorted pays out ${money(cfA)} on that date`,
-        `N = ${money(NB*cpnB)} / ${money(cfA)} = ${correct.toFixed(4)} units, held short`,
+        `N = coupon to cancel / cash flow per unit = ${money(NB*cpnB)} / ${money(cfA)} = ${correct.toFixed(4)} units, held short`,
         `That short position is the only thing standing between this portfolio and a zero.`
       ]};
   }},
@@ -987,7 +1006,9 @@ const TEMPLATES = [{ id:"z1", topic:"zero", name:"Price a zero from its zero yie
     const correct=2*(1-d15)/S;
     return {
       unit:"percent",
-      tol:0.004, sep:0.004,
+      /* Tolerance set 22 Sep 2026 from the full-grid check (gridall.js 03): the 1.5-year zero yield was inside the old 0.4% match on 4 draws;
+         smallest gap 0.33%. Two decimals typed are off by at most 0.17%. */
+      tol:0.002, sep:0.003,
       text:`The zero yield curve reads <b>${pctS(y05)}</b> at 0.5 years, <b>${pctS(y10)}</b> at
             1 year and <b>${pctS(y15)}</b> at 1.5 years, per annum compounded semiannually.`,
       ask:"What is the 1.5-year par yield — the coupon rate that would make a 1.5-year note trade at par?",
@@ -1067,7 +1088,7 @@ const TEMPLATES = [{ id:"z1", topic:"zero", name:"Price a zero from its zero yie
       tol:0.004, sep:0.004,
       text:`The zero curve is <b>inverted</b> (all yields p.a., compounded semiannually):
             <b>${pctS(z[0])}</b> at 0.5 years,
-            <b>${pctS(z[1],3)}</b> at 1 year, <b>${pctS(z[2],3)}</b> at 1.5 years and
+            <b>${pctS(z[1])}</b> at 1 year, <b>${pctS(z[2])}</b> at 1.5 years and
             <b>${pctS(z[3])}</b> at 2 years.`,
       ask:"What is the 2-year par yield?",
       correct,
@@ -1104,7 +1125,9 @@ const TEMPLATES = [{ id:"z1", topic:"zero", name:"Price a zero from its zero yie
       /* discounting at par yields instead of bootstrapped factors is only a
          few tenths of a percent out -- tight enough to need a finer sieve, and
          far too instructive a mistake to discard */
-      tol:0.0008, sep:0.0008,
+      /* Tolerance set 22 Sep 2026 from the full-grid check (gridall.js 03): discounting both cash flows at d1 was inside the old 0.08%
+         match on 327 of 1395 draws; smallest gap 0.035%. */
+      tol:0.0002, sep:0.0003,
       text:`Par yields, both p.a. compounded semiannually: <b>${pctS(p[0])}</b> at 0.5 years and
             <b>${pctS(p[1])}</b> at 1 year. Now price a <b>1-year</b> T-note, face
             <b>${money(F)}</b>, paying ${art(c)} <b>${pctS(c)} p.a.</b> coupon.`,
@@ -1147,8 +1170,13 @@ const TEMPLATES = [{ id:"z1", topic:"zero", name:"Price a zero from its zero yie
     /* the factors used to be built by subtracting random decrements, which produced a
        ZIGZAG zero curve (4.08 / 3.49 / 4.10 / 3.99) that no market prints. Built from a
        monotone rising curve instead, so the five prices hang together.               */
-    const base=pick(range(.03,.05,.0025)), stp=pick([.0025,.005]);
-    const d=[0.5,1,1.5,2].map((t,i)=>1/Math.pow(1+(base+stp*i)/2,2*t));
+    /* Re-drawn when the pieces cost within 0.3% of face (22 Sep 2026, gridall.js 03): there
+       the "that is the face value" slip scored. */
+    let base,stp,d;
+    do {
+      base=pick(range(.03,.05,.0025)); stp=pick([.0025,.005]);
+      d=[0.5,1,1.5,2].map((t,i)=>1/Math.pow(1+(base+stp*i)/2,2*t));
+    } while (Math.abs(cpn*(d[0]+d[1]+d[2]+d[3]) + F*d[3] - F) < 0.003*F);
     /* Said FOUR STRIPS and bundled the final coupon into the principal piece. A 2-year
        note gives FIVE: four coupon STRIPS and the principal STRIP - which is exactly the
        count s1 tests (10 years -> 21 pieces). Reader A caught the contradiction.      */
@@ -1720,6 +1748,9 @@ const CHOICE_TEMPLATES = [
              : fault==="undiscounted"  ? cpn + cpn
              :                           cpn*d05 + cpn*d10;
     const den = fault==="faceOnly" ? F : last;
+    /* 22 Sep 2026: worked from the figures as printed, formula first (Anh's rules), so every step
+       reproduces from the page (gridall.js flagged the last digit). */
+    const pvr=+pv.toFixed(2), pvok=+(cpn*d05+cpn*d10).toFixed(2);
     const s=[
       `<b>Step 1.</b> Cash flows: ${money(cpn)} at 0.5, ${money(cpn)} at 1.0, ${money(last)} at 1.5`,
       fault==="sameRate"
@@ -1727,10 +1758,10 @@ const CHOICE_TEMPLATES = [
         : (fault==="undiscounted"
             ? `<b>Step 2.</b> PV of the coupons = ${money(cpn)} + ${money(cpn)} = ${money(pv)}`
             : `<b>Step 2.</b> PV of the coupons = ${money(cpn)}&times;${d05.toFixed(6)} + ${money(cpn)}&times;${d10.toFixed(6)} = ${money(pv)}`),
-      `<b>Step 3.</b> Strip them out: ${money(F)} &minus; ${money(pv)} = ${money(F-pv)}`,
+      `<b>Step 3.</b> Strip them out: ${money(F)} &minus; ${money(pvr)} = ${money(F-pvr)}`,
       fault==="faceOnly"
-        ? `<b>Step 4.</b> d<sub>1.5</sub> = ${money(F-pv)} &divide; ${money(F)} = ${((F-pv)/den).toFixed(6)}`
-        : `<b>Step 4.</b> d<sub>1.5</sub> = ${money(F-pv)} &divide; ${money(last)} = ${((F-pv)/den).toFixed(6)}`
+        ? `<b>Step 4.</b> d<sub>1.5</sub> = ${money(F-pvr)} &divide; ${money(F)} = ${((F-pvr)/den).toFixed(6)}`
+        : `<b>Step 4.</b> d<sub>1.5</sub> = ${money(F-pvr)} &divide; ${money(last)} = ${((F-pvr)/den).toFixed(6)}`
     ];
     const fine=[
       `Step 1 is fine &mdash; a 1.5-year note paying semiannually has exactly these three cash flows.`,
@@ -1755,9 +1786,9 @@ const CHOICE_TEMPLATES = [
       ask:"Which step introduces the mistake?",
       options: s.map((html,k)=>({html, correct:k===at, msg: k===at ? why : fine[k]})),
       steps:[
-        `PV of the coupons = ${money(cpn)}&times;${d05.toFixed(6)} + ${money(cpn)}&times;${d10.toFixed(6)} = ${money(cpn*d05+cpn*d10)}`,
-        `${money(F)} &minus; ${money(cpn*d05+cpn*d10)} = ${money(F-cpn*d05-cpn*d10)}`,
-        `d<sub>1.5</sub> = ${money(F-cpn*d05-cpn*d10)} &divide; ${money(last)} = ${((F-cpn*d05-cpn*d10)/last).toFixed(6)}`
+        `PV of the coupons = coupon &times; d<sub>0.5</sub> + coupon &times; d<sub>1.0</sub> = ${money(cpn)}&times;${d05.toFixed(6)} + ${money(cpn)}&times;${d10.toFixed(6)} = ${money(pvok)}`,
+        `Price of the final cash flow = price &minus; PV of the coupons = ${money(F)} &minus; ${money(pvok)} = ${money(F-pvok)}`,
+        `d<sub>1.5</sub> = price of the final cash flow / final cash flow = ${money(F-pvok)} &divide; ${money(last)} = ${((F-pvok)/last).toFixed(6)}`
       ]};
   }},
 

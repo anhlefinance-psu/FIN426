@@ -266,7 +266,9 @@ const TEMPLATES = [{ id:"w1", topic:"forward", name:"One-year forward price of a
     /* see rev1's COLLISION BAND note -- w3 owns the +20bp class */
     const rt = pick(range(.0320,.0720,.0025));
     const rT = rt + pick(range(.005,.02,.0025));
-    const dt = dfOf(rt,t), dT = dfOf(rT,T);
+    /* 22 Sep 2026: worked from the figures as printed, formula first (Anh's rules), so every result
+       reproduces from the page (gridall.js flagged the last digit). */
+    const dt = +dfOf(rt,t).toFixed(6), dT = +dfOf(rT,T).toFixed(6);
     const correct = dT/dt;
     return {
       unit:"number",
@@ -284,7 +286,7 @@ const TEMPLATES = [{ id:"w1", topic:"forward", name:"One-year forward price of a
       steps:[
         `Cash flows: 0 today, &minus;F at time ${t}, +$1 at time ${T}`,
         `The contract costs nothing to enter, so &minus;F&times;d<sub>${t}</sub> + d<sub>${T}</sub> = 0`,
-        `F = ${dT.toFixed(6)} / ${dt.toFixed(6)} = ${correct.toFixed(4)}`
+        `F = d<sub>${T}</sub> / d<sub>${t}</sub> = ${dT.toFixed(6)} / ${dt.toFixed(6)} = ${correct.toFixed(4)}`
       ]};
   }},
 
@@ -296,9 +298,12 @@ const TEMPLATES = [{ id:"w1", topic:"forward", name:"One-year forward price of a
     do {
       d1 = pick(range(.92,.97,.0005));
       r  = pick(range(.04,.08,.0025));
-      fair = d1*(1+r/2);
+      /* Both prices are printed to four decimals, so build them that way: the key used to
+         be the exact gap while the printed prices differed by 0.0001 more or less on 157 of
+         43,112 draws (22 Sep 2026, gridall.js 04). */
+      fair = +(d1*(1+r/2)).toFixed(4);
       gap  = pick(range(.004,.02,.0005));
-      mkt  = fair + gap;
+      mkt  = +(fair + gap).toFixed(4);
     } while (mkt >= 0.999);
     const correct = gap;
     return {
@@ -341,32 +346,42 @@ const TEMPLATES = [{ id:"w1", topic:"forward", name:"One-year forward price of a
       ],
       steps:[
         `That price <em>is</em> the forward discount factor from time 0.5 to time 1: d(0.5,1) = ${F.toFixed(4)}`,
-        `A discount factor and its rate: d = 1/(1+f/2), so 1 + f/2 = 1/${F.toFixed(4)} = ${(1/F).toFixed(6)}`,
-        `f = 2 &times; ${(1/F-1).toFixed(6)} = ${pctS(correct,4)} p.a. compounded semiannually`
+        `A discount factor and its rate: d = 1/(1+f/2), so f = 2 &times; (1/d &minus; 1)`,
+        `f = 2 &times; (1/${F.toFixed(4)} &minus; 1) = 2 &times; ${(1/F-1).toFixed(8)} = ${pctS(correct,4)} p.a. compounded semiannually`
       ]};
   }},
 
 { id:"r2", topic:"fwdrate", name:"Forward rate from two spot rates", gen(){
-    const t = pick([0.5,1]);
-    const T = t + pick([0.5,1]);
-    const rt = pick(range(.03,.07,.0025));
-    const rT = rt + pick(range(.008,.025,.0005));
-    const correct = fwdRate(rt,t,rT,T);
+    /* 22 Sep 2026 (Anh: the shortcut counts as wrong, and the question must say so).
+       The simple-interest shortcut was inside the 0.25% match on 71% of draws, and on
+       Quiz 2's Sample (Q7) it picked the key. Re-drawn until it sits at least 0.10% from
+       the key, so a quiz can show both as distinct options; tol 0.05% marks it wrong,
+       sep 0.08% keeps it on the list. Answers typed to four decimals are off by at most
+       0.0013%. The slip is third in cands, where a quiz swaps it for exactly one option. */
+    let t,T,rt,rT,correct;
+    do {
+      t = pick([0.5,1]);
+      T = t + pick([0.5,1]);
+      rt = pick(range(.03,.07,.0025));
+      rT = rt + pick(range(.008,.025,.0005));
+      correct = fwdRate(rt,t,rT,T);
+    } while (Math.abs(correct - (rT*T-rt*t)/(T-t)) < 0.001*correct);
     const dt = Math.pow(1+rt/2,-2*t), dT = Math.pow(1+rT/2,-2*T);
     return {
       unit:"percent",
       text:`The riskless rate to <b>${t} year${t===1?"":"s"}</b> is <b>${pctS(rt)} p.a.</b> and
             to <b>${T} year${T===1?"":"s"}</b> is <b>${pctS(rT)} p.a.</b>, both compounded
             semiannually.`,
-      ask:`What is the forward rate for a loan running from time ${t} to time ${T}, p.a. compounded semiannually?`,
+      ask:`What is the forward rate for a loan running from time ${t} to time ${T}, p.a. compounded semiannually? (Use the exact no-arbitrage relation &mdash; no shortcuts or approximations. Give the rate in percent to four decimal places.)`,
+      tol:0.0005,
       correct,
       cands:[
         {val:rT, msg:`That is the spot rate to time ${T}. The forward rate covers only the stretch from ${t} to ${T}, and because the curve is rising it must sit above the ${T}-year spot rate.`},
         {val:rT-rt, msg:`You subtracted the two rates. Rates compound, so the two ways of lending to time ${T} have to be equated as a product, not a difference.`},
-        {val:(rT*T-rt*t)/(T-t), msg:`That is a simple-interest weighting. It is a decent approximation, but the no-arbitrage relation compounds: (1+r<sub>${T}</sub>/2)<sup>${2*T}</sup> = (1+r<sub>${t}</sub>/2)<sup>${2*t}</sup>(1+f/2)<sup>${2*(T-t)}</sup>.`},
+        {val:(rT*T-rt*t)/(T-t), msg:`That is a simple-interest weighting. It is a decent approximation, but the question asks for the exact rate, and the no-arbitrage relation compounds: (1+r<sub>${T}</sub>/2)<sup>${2*T}</sup> = (1+r<sub>${t}</sub>/2)<sup>${2*t}</sup>(1+f/2)<sup>${2*(T-t)}</sup>.`},
         {val:rt, msg:`That is the spot rate to time ${t}, which covers the period <em>before</em> the forward loan begins.`}
       ],
-      sep:0.02,
+      sep:0.0008,
       steps:[
         `d(${t}) = 1/(1+${(rt/2).toFixed(5)})<sup>${2*t}</sup> = ${dt.toFixed(6)} and d(${T}) = 1/(1+${(rT/2).toFixed(5)})<sup>${2*T}</sup> = ${dT.toFixed(6)}`,
         `The forward discount factor from ${t} to ${T} is d(${T})/d(${t}) = ${(dT/dt).toFixed(6)}`,
@@ -381,17 +396,22 @@ const TEMPLATES = [{ id:"w1", topic:"forward", name:"One-year forward price of a
     const correct = Math.pow(1+rt/2,2)*Math.pow(1+f/2,2);
     return {
       unit:"number",
+      /* Tolerance set 22 Sep 2026 from the full-grid check: adding the two annual rates was
+         inside 0.25% on the edge of the grid (smallest gap 0.245%). Six decimals asked. Listed
+         third so a quiz offers it, in place of the "divided by the growth" option. */
+      tol:0.0001, sep:0.002,
       text:`The <b>one-year</b> spot rate is <b>${pctS(rt)} p.a.</b> and the
             <b>one-year-ahead forward rate for a one-year loan</b> (a one-year forward
             loan that starts 12 months from now and ends 24 months from now) is
             <b>${pctS(f)} p.a.</b>, both compounded semiannually.`,
       ask:"What does $1 lent today grow to after two years? (Six decimals.)",
       correct,
+      /* order: the adding-rates slip third (22 Sep 2026) */
       cands:[
         {val:Math.pow(1+rt/2,4), msg:`You rolled the one-year spot rate across all four periods. Only the first two six-month periods earn ${pctS(rt)}; the two running from month 12 to month 24 earn the forward rate ${pctS(f)}.`},
         {val:Math.pow(1+f/2,4), msg:`You used the forward rate for all four periods. It applies only from month 12 to month 24; the first twelve months earn the spot rate ${pctS(rt)}.`},
-        {val:Math.pow(1+rt/2,2)/Math.pow(1+f/2,2), msg:`You divided by the growth from month 12 to month 24 instead of multiplying by it. Lending on for a further year makes the balance grow, so the factor multiplies.`},
-        {val:1+rt+f, msg:`You added the two annual rates. Interest from month 12 onward is earned on the balance the first twelve months produced, so the growth factors multiply.`}
+        {val:1+rt+f, msg:`You added the two annual rates. Interest from month 12 onward is earned on the balance the first twelve months produced, so the growth factors multiply.`},
+        {val:Math.pow(1+rt/2,2)/Math.pow(1+f/2,2), msg:`You divided by the growth from month 12 to month 24 instead of multiplying by it. Lending on for a further year makes the balance grow, so the factor multiplies.`}
       ],
       steps:[
         `Months 0 to 12: $1 &times; (1 + ${(rt/2).toFixed(5)})<sup>2</sup> = ${Math.pow(1+rt/2,2).toFixed(6)}`,
@@ -454,20 +474,24 @@ const TEMPLATES = [{ id:"w1", topic:"forward", name:"One-year forward price of a
 
 { id:"r4", topic:"fwdrate", also:["reason"], name:"Forward rate on an inverted curve", gen(){
     let rt,rT;
+    /* 22 Sep 2026: also re-drawn when the forward rate is at or below 0.5% (19 of 152
+       draws were, some negative, down to -1.19%). The linear shortcut counts as wrong
+       (Anh): it was inside the 0.25% match on 6.6% of draws; its smallest gap on this
+       grid is 0.165%, so tol 0.05% marks it wrong and sep 0.12% keeps it listed.        */
     do { rt=pick(range(.055,.095,.0025)); rT=rt-pick(range(.015,.035,.0025)); }
-    while (rT < 0.02);
+    while (rT < 0.02 || 2*(Math.pow(1+rT/2,2)/(1+rt/2)-1) <= 0.005);
     const correct=2*(Math.pow(1+rT/2,2)/(1+rt/2)-1);
     return {
       unit:"percent",
       text:`The curve is <b>inverted</b>: the six-month rate is <b>${pctS(rt)}</b> and the one-year
             rate is <b>${pctS(rT)}</b>, both p.a. compounded semiannually.`,
-      ask:"What is the forward rate for a six-month loan starting in six months, p.a. compounded semiannually?",
+      ask:"What is the forward rate for a six-month loan starting in six months, p.a. compounded semiannually? (Use the exact no-arbitrage relation &mdash; no shortcuts or approximations. Give the rate in percent to four decimal places.)",
+      tol:0.0005, sep:0.0012,
       correct,
       cands:[
         {val:rT, msg:`That is the one-year spot rate. It is a blend of the first six months at ${pctS(rt)} and the forward six months. Since the blend is <em>below</em> the first leg here, the second leg must be below the blend.`},
         {val:rt, msg:`That is the six-month spot rate, which covers the period <em>before</em> the forward loan starts.`},
-        {val:rT-(rt-rT), msg:`That extrapolates the drop in a straight line. Rates compound, so the relation is a product: (1+r<sub>1</sub>/2)<sup>2</sup> = (1+r<sub>0.5</sub>/2)(1+f/2).`},
-        {val:2*rT-rt, msg:`Close to a linear extrapolation, but not the no-arbitrage answer. Equate the two ways of lending for a year and solve.`}
+        {val:2*rT-rt, msg:`That extrapolates the drop in a straight line &mdash; a shortcut, and the question asks for the exact rate. Rates compound, so the relation is a product: (1+r<sub>1</sub>/2)<sup>2</sup> = (1+r<sub>0.5</sub>/2)(1+f/2).`}
       ],
       steps:[
         `d(0.5) = 1/(1+${(rt/2).toFixed(5)}) = ${(1/(1+rt/2)).toFixed(6)} and d(1) = 1/(1+${(rT/2).toFixed(5)})<sup>2</sup> = ${Math.pow(1+rT/2,-2).toFixed(6)}`,
@@ -484,10 +508,11 @@ const TEMPLATES = [{ id:"w1", topic:"forward", name:"One-year forward price of a
     const rT=rt+pick(range(.01,.025,.0025));
     const fair=2*(Math.pow(1+rT/2,2)/(1+rt/2)-1);
     const off=pick(range(.004,.02,.001))*pick([1,-1]);
-    /* the quote is displayed to three decimals, so round it to exactly that --
-       otherwise a student solving from the number they can see disagrees with
-       the key in the last figure */
-    const q=Math.round((fair+off)*1e5)/1e5;
+    /* The dealer's quote is a round rate, on a quarter-point grid (Anh's rule, 22 Sep 2026:
+       no rates like 10.719% that students must key in). The offset is at least 0.40%, so
+       rounding by at most 0.125% never closes the gap or flips its sign. The key is built
+       from the quote as displayed.                                                     */
+    const q=Math.round((fair+off)*400)/400;
     const correct=Math.abs((1+rt/2)*(1+q/2)-Math.pow(1+rT/2,2))*N;
     const half=N*(1+rt/2), roll=half*(1+q/2), straight=N*Math.pow(1+rT/2,2);
     const lendStraight = straight > roll;
@@ -495,7 +520,7 @@ const TEMPLATES = [{ id:"w1", topic:"forward", name:"One-year forward price of a
       unit:"money",
       text:`Spot rates (all quoted p.a. compounded semiannually) are <b>${pctS(rt)}</b> to six months
             and <b>${pctS(rT)}</b> to one year. A dealer quotes a six-month-ahead forward rate of
-            <b>${pctS(q,3)} p.a. compounded semiannually</b> for a six-month loan.`,
+            <b>${pctS(q,2)} p.a. compounded semiannually</b> for a six-month loan.`,
       ask:`How much riskless profit is available at the one-year horizon, by appropriately combining spot and forward loans, if you borrow and lend ${money(N)} at t = 0?`,
       correct,
       cands:[
@@ -506,11 +531,11 @@ const TEMPLATES = [{ id:"w1", topic:"forward", name:"One-year forward price of a
       ],
       sep:0.02,
       steps:[
-        `Fair forward rate = ${pctS(fair,4)} p.a. compounded semiannually; the dealer quotes ${pctS(q,3)} p.a. &mdash; too ${q<fair?"low":"high"}.`,
-        `<b>Roll.</b> Lend ${money(N)} for six months at ${pctS(rt)} p.a. compounded semiannually, which grows to ${money(half)}; then lend that on from month 6 to month 12 at the dealer's ${pctS(q,3)}: ${money(half)} &times; (1 + ${(q/2).toFixed(5)}) = <b>${money(roll)}</b>`,
+        `Fair forward rate = ${pctS(fair,4)} p.a. compounded semiannually; the dealer quotes ${pctS(q,2)} p.a. &mdash; too ${q<fair?"low":"high"}.`,
+        `<b>Roll.</b> Lend ${money(N)} for six months at ${pctS(rt)} p.a. compounded semiannually, which grows to ${money(half)}; then lend that on from month 6 to month 12 at the dealer's ${pctS(q,2)}: ${money(half)} &times; (1 + ${(q/2).toFixed(5)}) = <b>${money(roll)}</b>`,
         `<b>Straight.</b> Lend the same ${money(N)} for the full year at ${pctS(rT)} p.a. compounded semiannually: ${money(N)} &times; (1 + ${(rT/2).toFixed(5)})<sup>2</sup> = <b>${money(straight)}</b>`,
         `The ${lendStraight?"straight":"roll"} leg pays more, so <b>lend ${lendStraight?"straight and borrow through the roll":"through the roll and borrow straight"}</b>. At time 0 you borrow ${money(N)} and lend ${money(N)} &mdash; nothing changes hands. At six months the ${money(half)} falling due on one leg is exactly matched by the other. Time 1 is the first date with a net flow.`,
-        `Profit = ${money(Math.max(roll,straight))} &minus; ${money(Math.min(roll,straight))} = <b>${money(correct)}</b> at time 1, with no money down and no risk.`,
+        `Profit = larger amount &minus; smaller amount = ${money(Math.max(roll,straight))} &minus; ${money(Math.min(roll,straight))} = <b>${money(Math.abs(+roll.toFixed(2) - +straight.toFixed(2)))}</b> at time 1, with no money down and no risk.`,
         `Note that the ${money(N)} scales the profit and nothing else: every cash flow before time 1 nets to zero, so no capital is tied up at any point.`
       ]};
   }},
@@ -531,7 +556,9 @@ const TEMPLATES = [{ id:"w1", topic:"forward", name:"One-year forward price of a
        forward price stays below 1 -- drawing them independently lets d(T)
        exceed d(t), which would price a zero above par */
     const dt=1/Math.pow(1+rt/2,2*t), dT=1/Math.pow(1+rT/2,2*T);
-    const F=dT/dt;
+    /* 22 Sep 2026: worked from the figures as printed, formula first (Anh's rules), so every result
+       reproduces from the page (gridall.js flagged the last digit). */
+    const F=+(dT/dt).toFixed(6), dtP=+dt.toFixed(6), dTP=F*dtP;
     return {
       unit:"number",
       tol:0.0015, sep:0.0015,
@@ -539,7 +566,7 @@ const TEMPLATES = [{ id:"w1", topic:"forward", name:"One-year forward price of a
             has a forward price of <b>${F.toFixed(6)}</b>. Today's discount factor to time
             <b>${t}</b> is <b>${dt.toFixed(6)}</b>.`,
       ask:`What is today's discount factor for maturity ${T}? (Six decimals.)`,
-      correct:dT,
+      correct:dTP,
       cands:[
         {val:F/dt, msg:`You divided again. F = d<sub>${T}</sub>/d<sub>${t}</sub>, so recovering the far factor means <em>multiplying</em>: d<sub>${T}</sub> = F &times; d<sub>${t}</sub>.`},
         {val:dt/F, msg:`Inverted. That gives the ratio the wrong way up.`},
@@ -549,7 +576,7 @@ const TEMPLATES = [{ id:"w1", topic:"forward", name:"One-year forward price of a
       steps:[
         `Cash flows: 0 today, &minus;F at time ${t}, +\$1 at time ${T}`,
         `A forward contract costs nothing to enter, so those cash flows must have zero present value: &minus;F &times; d<sub>${t}</sub> + d<sub>${T}</sub> = 0`,
-        `so d<sub>${T}</sub> = F &times; d<sub>${t}</sub> = ${F.toFixed(6)} &times; ${dt.toFixed(6)} = ${dT.toFixed(6)}`,
+        `so d<sub>${T}</sub> = F &times; d<sub>${t}</sub> = ${F.toFixed(6)} &times; ${dt.toFixed(6)} = ${dTP.toFixed(6)}`,
         `Note the check: d<sub>${T}</sub> must come out <em>below</em> d<sub>${t}</sub>. A later dollar is always worth less.`
       ]};
   }},
@@ -571,7 +598,7 @@ const TEMPLATES = [{ id:"w1", topic:"forward", name:"One-year forward price of a
       correct,
       cands:[
         {val:rt+f, msg:`You added the two annualised rates. Each covers only six months.`},
-        {val:(rt+f)/2, msg:`That is the arithmetic average. Growth factors multiply, so the one-year factor is the <em>geometric</em> blend: (1+r<sub>1</sub>/2)<sup>2</sup> = (1+r<sub>0.5</sub>/2)(1+f/2).`},
+        {val:(rt+f)/2, msg:`That is the arithmetic average. Growth factors multiply, so the one-year factor is the <em>geometric</em> blend: (1 + r<sub>1</sub>/2)<sup>2</sup> = (1 + r<sub>0.5</sub>/2) &times; (1 + f/2).`},
         {val:f, msg:`That is the forward rate. The one-year spot rate is a blend of it and the near rate, so it must sit between them.`},
         {val:f-rt, msg:`That is the gap between them, not a level.`}
       ],
