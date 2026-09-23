@@ -573,6 +573,9 @@ const TEMPLATES = [{ id:"d1", topic:"dur", name:"Duration of a zero", gen(){
             <b>${dbp} basis points</b>.`,
       ask:"What is the convexity adjustment to the price change, in dollars?",
       correct,
+      /* the key is a multiple of $0.125 and can be as small as $0.25, so an answer to the cent
+         was up to 2% off and marked wrong; accept anything within half a cent (22 Sep 2026) */
+      tol:Math.max(0.0025, 0.0051/correct), sep:Math.max(0.01, 0.0102/correct),
       cands:[
         {val:DC*dy*dy, msg:`You left out the one-half. The adjustment is 0.5 &times; \$\$convexity &times; (change in yields)&sup2;.`},
         {val:0.5*DC*dy, msg:`You did not square the yield change. That squaring is why the adjustment is negligible for small moves and matters for large ones.`},
@@ -681,7 +684,7 @@ const TEMPLATES = [{ id:"d1", topic:"dur", name:"Duration of a zero", gen(){
       unit:"number",
       text:`You are long a bond with a dollar duration of <b>${ddl.toFixed(2)}</b> and you have
             shorted <b>${n}</b> unit${n===1?"":"s"} of a bond whose dollar duration is <b>${dds.toFixed(2)}</b>.`,
-      ask:"What is the portfolio's remaining dollar duration?",
+      ask:"What is the portfolio's remaining dollar duration? (Negative if the book is over-hedged.)",
       correct,
       cands:[
         {val:ddl+dds*n, msg:`You added. The position is <em>short</em> the hedge, so its \$\$duration is subtracted.`},
@@ -928,7 +931,9 @@ const TEMPLATES = [{ id:"d1", topic:"dur", name:"Duration of a zero", gen(){
       text:`A fixed income security is worth <b>${money(V0)}</b> and has a duration of <b>${D}</b>. Yields
             <b>fall by ${pctS(-dy,2)}</b> and the model says it will be worth <b>${money(V1)}</b>
             &mdash; more than duration alone predicts.`,
-      ask:"What convexity does that imply? Give it to two decimal places.",
+      /* One decimal: the price is printed to the cent, which pins the convexity only to about
+         +/-0.04 (blind sitting v13, all five readers). */
+      ask:"What convexity does that imply? Give it to one decimal place.",
       correct,
       cands:[
         {val:((V1-V0)/V0 + D*dy)/(dy*dy), msg:`You dropped the factor of 2. The convexity term is <em>0.5</em> &times; C &times; (&Delta;y)&sup2;, so solving for C multiplies by 2.`},
@@ -938,8 +943,12 @@ const TEMPLATES = [{ id:"d1", topic:"dur", name:"Duration of a zero", gen(){
       steps:[
         `Start from &Delta;V/V = &minus;D &times; &Delta;y + &frac12; &times; C &times; (&Delta;y)&sup2;`,
         `Everything but C is known: &Delta;V/V = (${money(V1)} &minus; ${money(V0)}) / ${money(V0)} = ${((V1-V0)/V0*100).toFixed(4)}%, D = ${D}, &Delta;y = &minus;${pctS(-dy,2)}`,
-        `So ${((V1-V0)/V0*100).toFixed(4)}% = &minus;${D} &times; (&minus;${pctS(-dy,2)}) + &frac12; &times; C &times; (${pctS(-dy,2)})&sup2; = ${(-D*dy*100).toFixed(4)}% + ${(0.5*dy*dy).toFixed(6)} &times; C`,
-        `C = (${((V1-V0)/V0).toFixed(6)} &minus; ${(-D*dy).toFixed(6)}) / ${(0.5*dy*dy).toFixed(6)} = <b>${correct.toFixed(2)}</b>`
+        `So ${((V1-V0)/V0*100).toFixed(4)}% = &minus;${D} &times; (&minus;${pctS(-dy,2)}) + &frac12; &times; C &times; (${pctS(-dy,2)})&sup2; = ${(-D*dy*100).toFixed(4)}% + ${(0.5*dy*dy).toFixed(7)} &times; C`,
+        /* The last step divides the price change itself, not a rounding of it: from the
+           rounded 0.061935 the printed chain gives 38.70 against a key of 38.71, and a
+           1.50% yield move makes 1/2 (dy)^2 = 0.0001125, which six decimals rounds away
+           (gridall 06, 22 Sep 2026).                                                   */
+        `C = (&Delta;V/V + D &times; &Delta;y) / (&frac12; &times; (&Delta;y)&sup2;) = ((${money(V1)} &minus; ${money(V0)}) / ${money(V0)} + ${D} &times; (&minus;${pctS(-dy,2)})) / ${(0.5*dy*dy).toFixed(7)} = <b>${correct.toFixed(2)}</b>`
       ]};
   }},
 
@@ -1098,7 +1107,7 @@ const CHOICE_TEMPLATES = [{ id:"k1", topic:"concept", also:["dur"], name:"Why du
     ]);
     return {mode:"choice",
       text:`The note says the duration of a zero is <em>roughly</em> its maturity, whatever its
-            face value and yield.`,
+            face value.`,
       ask:"Why is that a good approximation?",
       options:opts,
       steps:[
@@ -1266,7 +1275,7 @@ const CHOICE_TEMPLATES = [{ id:"k1", topic:"concept", also:["dur"], name:"Why du
     return {mode:"choice",
       text:`You short the 2-year Treasury zero against one 15-year Treasury zero in the ratio
             that sets the portfolio's dollar duration to zero. Yields only ever move in parallel.`,
-      ask:"What risk have you not removed?",
+      ask:"What exposure have you not removed?",
       options:opts,
       steps:[
         `\$\$duration zero means little change in value for <em>small</em> moves.`,
@@ -1427,11 +1436,11 @@ const CHOICE_TEMPLATES = [{ id:"k1", topic:"concept", also:["dur"], name:"Why du
 
 { id:"ktrade06", topic:"error", also:["concept"], name:"Which trader is wrong?", gen(){
     const claims=[
-      {html:`"For a yield compounded semiannually, a zero's duration is its maturity divided by one plus half its yield, so it is always a little shorter than maturity."`,
+      {html:`"For a yield compounded semiannually, a zero's duration is its maturity divided by one plus half its yield, so it is a little shorter than maturity whenever the yield is positive."`,
        bad:false, why:``, ok:`right &mdash; that is the formula, and the divisor above 1 is what makes duration shorter.`},
       {html:`"Dollar durations add across a portfolio, but plain durations have to be value-weighted."`,
        bad:false, why:``, ok:`right. Dollars add; percentages average.`},
-      {html:`"The convexity adjustment lifts the price above what duration alone predicts, whichever way yields move."`,
+      {html:`"For an option-free bond, the convexity adjustment lifts the price above what duration alone predicts, whichever way yields move."`,
        bad:false, why:``, ok:`right. The tangent lies below the curve on both sides, so the correction is positive both times.`},
       {html:`"A bond's duration depends on its face value: double the face and you double the duration."`,
        bad:true, why:`Wrong. Face value does not appear in the duration formula at all. Doubling the face doubles the <em>dollar</em> duration, because it doubles the price, but the duration itself is unchanged.`,
@@ -1495,8 +1504,8 @@ const CHOICE_TEMPLATES = [{ id:"k1", topic:"concept", also:["dur"], name:"Why du
        msg:`Right. Columns 3, 4 and 5 are written in terms of the yield, so they are the only formulas that know how often it compounds. Columns 6 and 7 refer to columns 3 to 5: their values update by themselves, but their formulas stay.`},
       {html:`Columns 4 and 5 only`, correct:false,
        msg:`The duration and convexity formulas do change, but so does the price: a yield compounded ${to} discounts with its own convention, not with (1 + y/2)<sup>2T</sup>.`},
-      {html:`Column 3 only`, correct:false,
-       msg:`The price formula does change, but so do the duration and convexity formulas: every 2 that divides something in them becomes the new number of times a year.`},
+      {html:`Columns 4, 5 and 6`, correct:false,
+       msg:`Column 6 refers to columns 3 and 4, so its formula stays. And the price formula in column 3 does change: the discounting runs on the new convention too.`},
       {html:`Columns 3 to 7`, correct:false,
        msg:`One step too far. Columns 6 and 7 never mention the yield: they refer to columns 3, 4 and 5. Their values change because those columns change, but their formulas do not.`}
     ]);
@@ -1602,7 +1611,7 @@ const CHOICE_TEMPLATES = [{ id:"k1", topic:"concept", also:["dur"], name:"Why du
 
 { id:"b1", topic:"beta", also:["concept"], name:"What duration and beta share", gen(){
     const opts=shuffle([
-      {html:`Each multiplies one sensitivity by one change in a benchmark`, correct:true,
+      {html:`Both multiply one sensitivity by one change in a benchmark`, correct:true,
        msg:`Right. Strip the notation away and both say the same short sentence: impact = sensitivity &times; change in the benchmark.`},
       {html:`Both hold exactly rather than as approximations`, correct:false,
        msg:`Neither is. The duration equation carries a &asymp; because it ignores curvature, and the CAPM relation is about <em>expected</em> returns.`},
@@ -1678,8 +1687,8 @@ const CHOICE_TEMPLATES = [{ id:"k1", topic:"concept", also:["dur"], name:"Why du
        msg:`Right. Long \$100 of a 30-year zero against \$100 of a 2-year zero: the value is zero, but the \$\$duration is about 2,700. You still have to set it to zero, which is the same as matching the two legs.`},
       {html:`Yes &mdash; \$\$duration is duration times value, and the value is zero`, correct:false,
        msg:`That is the trap. \$\$duration is built up leg by leg, not by multiplying a portfolio value that happens to be zero. What <em>is</em> undefined for such a book is its percentage duration, which would be 0/0.`},
-      {html:`No &mdash; it is hedged only once its convexity is zero too`, correct:false,
-       msg:`Convexity matters for large moves, but that is not the first problem: the book's \$\$duration itself need not be zero.`},
+      {html:`No &mdash; a book that costs nothing can never be hedged`, correct:false,
+       msg:`It can: choose the legs so their \$\$durations cancel, and it is hedged to first order. What it cannot have is a percentage duration, since that would be 0/0.`},
       {html:`Yes, provided the yield curve shifts in parallel`, correct:false,
        msg:`Parallel shifts are assumed throughout here. Even under a perfectly parallel shift this book loses money, because its \$\$duration is not zero.`}
     ]);
