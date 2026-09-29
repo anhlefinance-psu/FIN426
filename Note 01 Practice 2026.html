@@ -173,6 +173,8 @@ const range = (lo,hi,step) => {
 };
 const ORD = n => n + (["th","st","nd","rd"][(n%100-n%10!=10)*(n%10<4)*(n%10)]||"th");
 const money = v => "$" + v.toLocaleString("en-US",{minimumFractionDigits:2, maximumFractionDigits:2});
+/* a negative amount reads &minus;$50.00, never $-50.00 (house rule, 22 Sep 2026) */
+const smoney = v => (v < 0 ? "&minus;" : "") + money(Math.abs(v));
 const pct   = (v,d=4) => (v*100).toFixed(d).replace(/\.?0+$/,"") + "%";
 const pctS  = (v,d=2) => (v*100).toFixed(d) + "%";
 /* "a 8.75%" is wrong: eight takes "an". Pick the article from the spoken form. */
@@ -226,10 +228,16 @@ const TEMPLATES = [
   }},
 
 { id:"t2", topic:"ear", name:"APR to effective annual rate", gen(){
-    const apr = pick(range(.04,.26,.0025));
-    const m   = pick([2,4,12]);
+    let apr,m,correct;
+    /* Re-drawn when the continuous answer e^APR - 1 sits within 0.3% of the EAR (22 Sep 2026,
+       gridall.js 01): monthly quotes from 4.00% to 5.75% put it inside the 0.25% match, so that
+       slip was marked correct. Monthly APRs of 4.00% to 6.75% are lost; 0.3% leaves a margin. */
+    do {
+      apr = pick(range(.04,.26,.0025));
+      m   = pick([2,4,12]);
+      correct = Math.pow(1+apr/m,m)-1;
+    } while (Math.abs(Math.exp(apr)-1-correct) < 0.003*correct);
     const label = {2:"semiannually",4:"quarterly",12:"monthly"}[m];
-    const correct = Math.pow(1+apr/m,m)-1;
     return {
       unit:"percent",
       text:`A loan is quoted at an APR of <b>${pctS(apr)}</b>, compounded <b>${label}</b> (${m} times a year).`,
@@ -253,6 +261,9 @@ const TEMPLATES = [
     do { FV=pick(range(500,5000,250)); r=pick(range(.04,.14,.0025)); t=pick([2,3,4,5,6,7,8,10,12,15]); }
     while (r*t < 0.30);
     const correct = FV*Math.exp(-r*t);
+    /* the worked solution multiplies by the factor as printed, so its last line reproduces
+       from the page (22 Sep 2026) */
+    const df = +Math.exp(-r*t).toFixed(6);
     return {
       unit:"money",
       text:`You will receive <b>${money(FV)}</b> in <b>${t} years</b>. The <b>continuously
@@ -266,8 +277,8 @@ const TEMPLATES = [
       ],
       steps:[
         `Under continuous compounding: PV = FV × e<sup>−rt</sup>`,
-        `−rt = −${r} × ${t} = ${(-r*t).toFixed(4)}, so e<sup>−rt</sup> = ${Math.exp(-r*t).toFixed(6)}`,
-        `PV = ${money(FV)} × ${Math.exp(-r*t).toFixed(6)} = ${money(correct)}`
+        `−rt = −${r} × ${t} = ${(-r*t).toFixed(4)}, so e<sup>−rt</sup> = ${df.toFixed(6)}`,
+        `PV = FV × e<sup>−rt</sup> = ${money(FV)} × ${df.toFixed(6)} = ${money(FV*df)}`
       ]};
   }},
 
@@ -302,6 +313,11 @@ const TEMPLATES = [
     const F=1000, m=2, T=pick([2,3,4,5,6,7,8,10]), n=m*T, cpn=F*c/m;
     const px=(cf,rate,N)=>{let s=0; for(let k=1;k<=N;k++) s+=cf/Math.pow(1+rate,k); return s+F/Math.pow(1+rate,N);};
     const correct = px(cpn,y/m,n);
+    /* 22 Sep 2026: the half-year rate is printed to five decimals, which is exact here (y is a
+       multiple of 0.25%, so y/2 is a multiple of 0.125%), and the price is summed at that rate.
+       Printed to four decimals it was a rounded rate, and the price worked from it was up to
+       $1.24 from the key. */
+    const i5 = (y/m).toFixed(5);
     let noDisc=0; for(let k=1;k<=n;k++) noDisc+=cpn/Math.pow(1+y/m,k); noDisc+=F;
     return {
       unit:"money",
@@ -311,16 +327,20 @@ const TEMPLATES = [
       ask:"What is the price of the bond?",
       correct,
       cands:[
-        {val:px(cpn,y,n), msg:`You used ${pctS(y)} as the rate <em>per period</em>. With semiannual compounding the periodic rate is ${pctS(y)} ÷ 2 = ${pctS(y/2)}.`},
+        {val:px(cpn,y,n), msg:`You used ${pctS(y)} as the rate <em>per period</em>. With semiannual compounding the periodic rate is ${pctS(y)} ÷ 2 = ${pctS(y/2,3)}.`},
         {val:px(F*c,y/m,n), msg:`Your coupon is too big. ${pctS(c)} is the <em>annual</em> rate, so each semiannual payment is ${pctS(c)} × ${money(F)} ÷ 2 = ${money(cpn)}, not ${money(F*c)}.`},
-        {val:px(F*c,y,n), msg:`Two errors at once: you used the annual coupon <em>and</em> the annual rate as the periodic rate. Halve both — ${money(cpn)} per period, discounted at ${pctS(y/2)}.`},
-        {val:noDisc, msg:`You discounted the coupons but added the ${money(F)} face value undiscounted. The principal arrives in ${T} years too, so it needs dividing by (1+${(y/m).toFixed(4)})<sup>${n}</sup>.`}
+        {val:px(F*c,y,n), msg:`Two errors at once: you used the annual coupon <em>and</em> the annual rate as the periodic rate. Halve both — ${money(cpn)} per period, discounted at ${pctS(y/2,3)}.`},
+        {val:noDisc, msg:`You discounted the coupons but added the ${money(F)} face value undiscounted. The principal arrives in ${T} years too, so it needs dividing by (1+${i5})<sup>${n}</sup>.`}
       ],
       steps:[
-        `Each coupon = ${pctS(c)} × ${money(F)} ÷ 2 = ${money(cpn)}, paid ${n} times`,
-        `Periodic rate = ${pctS(y)} ÷ 2 = ${pctS(y/2)}`,
-        `Price = Σ ${money(cpn)}/(1+${(y/m).toFixed(4)})<sup>k</sup> for k = 1…${n},  plus ${money(F)}/(1+${(y/m).toFixed(4)})<sup>${n}</sup>`,
-        `Price = ${money(correct)}`
+        `Each coupon = coupon rate × face ÷ 2 = ${pctS(c)} × ${money(F)} ÷ 2 = ${money(cpn)}, paid ${n} times`,
+        `Periodic rate = ${pctS(y)} ÷ 2 = ${pctS(y/2,3)}, i.e. ${i5}`,
+        /* Annuity formula, not a sum of n terms: the quiz allows only a calculator (Anh, 28 Sep
+           2026). The face value's PV is rounded to cents first and the coupons' PV is the rest,
+           so the printed sum reproduces the printed price. */
+        `Price = PV of the coupons (an annuity) + PV of the face value = (C/r) &times; (1 &minus; 1/(1+r)<sup>n</sup>) + F/(1+r)<sup>n</sup>, with r = y/2`,
+        `= (${money(cpn)}/${i5}) &times; (1 &minus; 1/(1+${i5})<sup>${n}</sup>) + ${money(F)}/(1+${i5})<sup>${n}</sup>`,
+        `= ${money(+(correct - Math.round(F/Math.pow(1+y/m,n)*100)/100).toFixed(2))} + ${money(Math.round(F/Math.pow(1+y/m,n)*100)/100)} = <b>${money(correct)}</b>`
       ]};
   }},
 
@@ -390,6 +410,11 @@ const TEMPLATES = [
       i   = apr/12;
     } while (Math.pow(1+i,k-1) < 1.025);
     const correct = (C/i)/Math.pow(1+i,k-1);
+    /* 22 Sep 2026: worked from the figures as printed, formula first (Anh's rules). C/i used to
+       divide by i rounded to six decimals ($400.00 / 0.010417 printed as $38,400.00; the figures
+       give $38,398.77), so the monthly rate is written as APR/12, and the last line divides the
+       C/i printed above it. */
+    const Ci = +(C/i).toFixed(2);
     return {
       unit:"money",
       text:`A perpetuity pays <b>${money(C)}</b> every month forever. The interest rate is
@@ -404,10 +429,10 @@ const TEMPLATES = [
         {val:(C/i)/Math.pow(1+i,k), msg:`You discounted ${k} periods instead of ${k-1}. The formula C/i already values the stream <em>one period before</em> its first payment &mdash; so with the first payment at the end of month ${k}, C/i sits at month ${k-1}, and only ${k-1} months of discounting remain.`}
       ],
       steps:[
-        `Monthly rate i = ${pctS(apr)} / 12 = ${pctS(i,4)}`,
-        `A perpetuity starting at the end of month 1 is worth C/i = ${money(C)} / ${i.toFixed(6)} = ${money(C/i)}`,
+        `Monthly rate i = APR / 12 = ${pctS(apr)} / 12 = ${pctS(i,4)}`,
+        `A perpetuity starting at the end of month 1 is worth C/i = ${money(C)} / (${apr}/12) = ${money(Ci)}`,
         `That figure is valued at month 0. Yours starts at month ${k}, so discount ${k-1} extra month${k>2?'s':''}:`,
-        `P = ${money(C/i)} / (1+${i.toFixed(6)})<sup>${k-1}</sup> = ${money(correct)}`
+        `P = (C/i) / (1+i)<sup>${k-1}</sup> = ${money(Ci)} / (1 + ${apr}/12)<sup>${k-1}</sup> = ${money(Ci/Math.pow(1+i,k-1))}`
       ]};
   }},
 
@@ -432,10 +457,12 @@ const TEMPLATES = [
         {val:M/i, msg:`That is the perpetuity formula C/i, which never stops paying. Plan A stops after 12 months, so you need the factor (1 − 1/(1+i)<sup>12</sup>).`},
         {val:M/i*(1 - 1/Math.pow(1+i,n))*(1+i), msg:`That treats the first payment as due today. Plan A pays at the <em>end</em> of each month, so do not multiply by (1+i).`}
       ],
+      /* 22 Sep 2026: the monthly rate is substituted as APR/12 rather than as a six-decimal
+         decimal, so the line reproduces from the page (it was off by a cent). */
       steps:[
-        `Monthly rate i = ${pctS(apr)} / 12 = ${pctS(i,4)}`,
+        `Monthly rate i = APR / 12 = ${pctS(apr)} / 12 = ${pctS(i,4)}`,
         `Plan A is an ordinary annuity: PV = (M/i)(1 − 1/(1+i)<sup>12</sup>)`,
-        `= (${money(M)} / ${i.toFixed(6)}) × (1 − 1/(1+${i.toFixed(6)})<sup>12</sup>)`,
+        `PV = (${money(M)} / (${apr}/12)) × (1 − 1/(1 + ${apr}/12)<sup>12</sup>) = ${money(correct)}`,
         `PV of Plan A = ${money(correct)}   (for comparison, Plan B = ${money(L + L/Math.pow(1+i,6))})`
       ]};
   }},
@@ -450,8 +477,15 @@ const TEMPLATES = [
       j   = pick(Array.from({length:k},(_,q)=>q+1));   // first payment at month j
       im  = apr/12;
       ik  = Math.pow(1+im,k) - 1;
-    } while (ik/(im*k) - 1 < 0.012 || (j<k && Math.pow(1+im,k-j) < 1.012));
+    } while (ik/(im*k) - 1 < 0.012 || (j<k && Math.pow(1+im,k-j) < 1.012) ||
+             /* 22 Sep 2026 (gridall.js 01): with the first payment at j = (k+1)/2 the simple-rate
+                slip X/(k*i) agrees with the key to second order in i, and it was marked correct on
+                every k = 3, j = 2 draw. Those draws are re-drawn. */
+             2*j === k+1);
     const correct = (X/ik)*Math.pow(1+im,k-j);
+    /* the last line multiplies the X/i_k printed above it, so it reproduces from the page;
+       i and i_k are written from the APR rather than as rounded decimals (22 Sep 2026) */
+    const Xik = +(X/ik).toFixed(2);
     const when = j===k ? `at the end of month ${k}`
                : (k===2 && j===1) ? `at the end of month 1 — so payments land in the <b>odd</b> months`
                : `at the end of month ${j}`;
@@ -461,19 +495,22 @@ const TEMPLATES = [
             you <b>${money(X)}</b> every <b>${k} months</b> forever. The first payment comes ${when}.`,
       ask:"How much do you need to deposit today?",
       correct,
+      /* when j = k the first and last of these equal the key, so they are left out (22 Sep 2026) */
       cands:[
-        {val:X/ik, msg:`That prices the stream as if the first payment were ${k} months away. Yours starts at month ${j}, which is ${k-j} month${k-j===1?'':'s'} earlier — so it is worth <em>more</em>. Multiply by (1+i)<sup>${k-j}</sup>.`},
+        ...(j<k ? [{val:X/ik, msg:`That prices the stream as if the first payment were ${k} months away. Yours starts at month ${j}, which is ${k-j} month${k-j===1?'':'s'} earlier — so it is worth <em>more</em>. Multiply by (1+i)<sup>${k-j}</sup>.`}] : []),
         {val:X/(im*k), msg:`You multiplied the monthly rate by ${k}. That ignores compounding within the ${k} months: the true ${k}-month rate is (1+i)<sup>${k}</sup> − 1 = ${pctS(ik,4)}, not ${pctS(im*k,4)}.`},
         {val:X/im, msg:`That funds ${money(X)} every <em>month</em>. You only pay out every ${k} months, so the account has time to accumulate — you need less.`},
         {val:X/apr, msg:`You used the annual rate. Convert to a ${k}-month rate first: (1 + ${pctS(apr)}/12)<sup>${k}</sup> − 1 = ${pctS(ik,4)}.`},
-        {val:(X/ik)/Math.pow(1+im,k-j), msg:`Right idea, wrong direction. An earlier first payment makes the stream more valuable, so multiply by (1+i)<sup>${k-j}</sup> rather than divide.`}
+        ...(j<k ? [{val:(X/ik)/Math.pow(1+im,k-j), msg:`Right idea, wrong direction. An earlier first payment makes the stream more valuable, so multiply by (1+i)<sup>${k-j}</sup> rather than divide.`}] : [])
       ],
       steps:[
-        `Monthly rate i = ${pctS(apr)} / 12 = ${pctS(im,4)}`,
-        `Rate earned over ${k} months: i<sub>${k}</sub> = (1+i)<sup>${k}</sup> − 1 = ${pctS(ik,4)}`,
-        `Valued one full ${k}-month period before its first payment, the stream is worth X/i<sub>${k}</sub> = ${money(X/ik)}`,
-        `The first payment is at month ${j}, i.e. ${k-j} month${k-j===1?'':'s'} earlier than that, so bring it forward: × (1+i)<sup>${k-j}</sup>`,
-        `P = ${money(X/ik)} × ${Math.pow(1+im,k-j).toFixed(6)} = ${money(correct)}`
+        `Monthly rate i = APR / 12 = ${pctS(apr)} / 12 = ${pctS(im,4)}`,
+        `Rate earned over ${k} months: i<sub>${k}</sub> = (1+i)<sup>${k}</sup> − 1 = (1 + ${apr}/12)<sup>${k}</sup> − 1 = ${pctS(ik,4)}`,
+        `Valued one full ${k}-month period before its first payment, the stream is worth X / i<sub>${k}</sub> = ${money(X)} / ((1 + ${apr}/12)<sup>${k}</sup> − 1) = ${money(Xik)}`,
+        ...(j<k
+          ? [`The first payment is at month ${j}, i.e. ${k-j} month${k-j===1?'':'s'} earlier than that, so bring it forward ${k-j} month${k-j===1?'':'s'}:`,
+             `P = (X / i<sub>${k}</sub>) × (1+i)<sup>${k-j}</sup> = ${money(Xik)} × (1 + ${apr}/12)<sup>${k-j}</sup> = ${money(Xik*Math.pow(1+im,k-j))}`]
+          : [`The first payment is at month ${k}, one full period away, so that is already the price: P = ${money(Xik)}`])
       ]};
   }},
 
@@ -510,7 +547,9 @@ const TEMPLATES = [
 /* ---- solve for the payment: the inverse annuity behind every car loan ---- */
 { id:"t12", topic:"payment", also:["annuity"], name:"Solving for the payment", gen(){
     const L   = pick(range(8000,45000,500));
-    const apr = pick(range(.03,.14,.0025));
+    /* From 3.25% (22 Sep 2026, gridall.js 01): the annuity-due payment is the key over (1+i),
+       i/(1+i) below it, and at 3.00% that is 0.249%, inside the 0.25% match. */
+    const apr = pick(range(.0325,.14,.0025));
     const yrs = pick([2,3,4,5,6]);
     const n = yrs*12, i = apr/12;
     const correct = L*i/(1-1/Math.pow(1+i,n));
@@ -527,20 +566,32 @@ const TEMPLATES = [
         {val:L*apr/(1-1/Math.pow(1+apr,n)), msg:`You used ${pctS(apr)} as the <em>monthly</em> rate. It is annual, compounded monthly, so the rate per month is ${pctS(apr)} ÷ 12 = ${pctS(i,4)}.`},
         {val:L*i/(1-1/Math.pow(1+i,n))/(1+i), msg:`That is the payment for an annuity <em>due</em>, with the first payment today. A standard loan pays at the end of each month.`}
       ],
+      /* 22 Sep 2026: the monthly rate and the annuity factor are substituted from the APR rather
+         than as six-decimal decimals, so the line reproduces from the page (it was up to 23
+         cents from the key). */
       steps:[
-        `Monthly rate i = ${pctS(apr)} / 12 = ${pctS(i,4)},  n = ${n} payments`,
+        `Monthly rate i = APR / 12 = ${pctS(apr)} / 12 = ${pctS(i,4)},  n = ${n} payments`,
         `The payments must have a present value equal to the loan: (C/i)(1 − 1/(1+i)<sup>n</sup>) = ${money(L)}`,
         `Rearranged: C = L × i / (1 − 1/(1+i)<sup>n</sup>)`,
-        `C = ${money(L)} × ${i.toFixed(6)} / ${(1-1/Math.pow(1+i,n)).toFixed(6)} = ${money(correct)}`
+        `C = ${money(L)} × (${apr}/12) / (1 − 1/(1 + ${apr}/12)<sup>${n}</sup>) = ${money(correct)}`
       ]};
   }},
 
 /* ---- running the EAR formula backwards ---- */
 { id:"t13", topic:"ear", name:"From EAR back to APR", gen(){
-    const ear = pick(range(.05,.26,.0025));
-    const m   = pick([2,4,12]);
+    let ear,m,correct;
+    /* Re-drawn when the continuous rate ln(1+EAR) sits within 0.3% of the APR (22 Sep 2026,
+       gridall.js 01): monthly compounding at EARs of 5.00% to 6.00% put it inside the 0.25%
+       match, so that slip was marked correct. Monthly EARs of 5.00% to 7.25% are lost. */
+    do {
+      ear = pick(range(.05,.26,.0025));
+      m   = pick([2,4,12]);
+      correct = m*(Math.pow(1+ear,1/m)-1);
+    } while (Math.abs(Math.log(1+ear)-correct) < 0.003*correct);
     const label = {2:"semiannually",4:"quarterly",12:"monthly"}[m];
-    const correct = m*(Math.pow(1+ear,1/m)-1);
+    /* the periodic rate as printed (four decimals of a percent), so APR = m x that reproduces
+       from the page; it is within 0.0006 of a point of the key (22 Sep 2026) */
+    const per = +(Math.pow(1+ear,1/m)-1).toFixed(6);
     return {
       unit:"percent",
       text:`A savings product advertises an <b>effective annual rate of ${pctS(ear)}</b>.
@@ -555,31 +606,40 @@ const TEMPLATES = [
       ],
       steps:[
         `Undo the compounding to get the periodic rate: (1 + EAR)<sup>1/${m}</sup> − 1`,
-        `= (1 + ${ear.toFixed(4)})<sup>1/${m}</sup> − 1 = ${pctS(Math.pow(1+ear,1/m)-1,4)} per period`,
-        `APR = ${m} × ${pctS(Math.pow(1+ear,1/m)-1,4)} = ${pctS(correct,4)}`
+        `= (1 + ${ear.toFixed(4)})<sup>1/${m}</sup> − 1 = ${pctS(per,4)} per period`,
+        `APR = m × periodic rate = ${m} × ${pctS(per,4)} = ${pctS(m*per,4)}`
       ]};
   }},
 
 /* ---- Case 01 in miniature: cash rebate versus subsidised financing ---- */
 { id:"t14", topic:"car", name:"Rebate or dealer financing?", gen(){
-    let price, rebate, promo, cof, yrs;
+    let price, rebate, promo, cof, yrs, n, ip, ic, C, correct, cash;
+    /* Re-drawn when the rebate option's value, price - rebate, sits within 1% of the answer
+       (22 Sep 2026, gridall.js 01): near break-even it fell inside the 0.25% match on 52,982
+       draws and a student who gave the rebate price was told "Correct"; between 0.25% and 1%
+       usable() dropped it, so that slip went undiagnosed. About 12% of draws are lost. */
     do {
       price  = pick(range(24000,52000,500));
       rebate = pick(range(500,3000,250));
       promo  = pick(range(0,.06,.0025));      // dealer's subsidised rate
       cof    = pick(range(.03,.12,.0025));    // your own cost of funds
       yrs    = pick([2,3,4,5]);
-    } while (Math.abs(cof-promo) < 0.02);
-    const n = yrs*12, ip = promo/12, ic = cof/12;
-    const C  = promo===0 ? price/n : price*ip/(1-1/Math.pow(1+ip,n));
-    const correct = C/ic*(1-1/Math.pow(1+ic,n));
-    const cash = price - rebate;
+      n = yrs*12; ip = promo/12; ic = cof/12;
+      C  = promo===0 ? price/n : price*ip/(1-1/Math.pow(1+ip,n));
+      correct = C/ic*(1-1/Math.pow(1+ic,n));
+      cash = price - rebate;
+    } while (Math.abs(cof-promo) < 0.02 || near(cash, correct, REL_SEP));
+    /* 22 Sep 2026: Step 1 substitutes the dealer's rate as promo/12 rather than as a six-decimal
+       decimal, and Step 2 values the payment as Step 1 prints it, to the cent, so both lines
+       reproduce from the page. The key stays exact; the PV worked from the printed payment is
+       at most a few tens of cents from it, far inside the 0.25% match. */
+    const Cp = +C.toFixed(2);
     return {
       unit:"money",
       text:`A dealer offers the same car two ways. <b>Take the rebate:</b> pay
             <b>${money(price)}</b> today less a <b>${money(rebate)}</b> cash rebate.
             <b>Take the financing:</b> pay <b>${money(price)}</b> financed at
-            <b>${pctS(promo)} p.a.</b> in equal monthly instalments over <b>${yrs} years</b>.
+            <b>${pctS(promo)} p.a. compounded monthly</b>, in equal monthly instalments over <b>${yrs} years</b>.
             Your own cost of funds is <b>${pctS(cof)} p.a. compounded monthly</b>.`,
       ask:"What is the present value of the financing option?",
       correct,
@@ -592,10 +652,10 @@ const TEMPLATES = [
       ],
       steps:[
         `Step 1 — the dealer sets the payment at their rate, ${pctS(promo)} ÷ 12 = ${pctS(ip,4)}:`,
-        promo===0 ? `C = ${money(price)} / ${n} = ${money(C)}`
-                  : `C = ${money(price)} × ${ip.toFixed(6)} / (1 − 1/(1+${ip.toFixed(6)})<sup>${n}</sup>) = ${money(C)}`,
+        promo===0 ? `C = price / n = ${money(price)} / ${n} = ${money(C)}`
+                  : `C = price × i / (1 − 1/(1+i)<sup>n</sup>) = ${money(price)} × (${promo}/12) / (1 − 1/(1 + ${promo}/12)<sup>${n}</sup>) = ${money(C)}`,
         `Step 2 — you value that stream at <em>your</em> cost of funds, ${pctS(cof)} ÷ 12 = ${pctS(ic,4)}:`,
-        `PV = (${money(C)} / ${ic.toFixed(6)}) × (1 − 1/(1+${ic.toFixed(6)})<sup>${n}</sup>) = ${money(correct)}`,
+        `PV = (C / i) × (1 − 1/(1+i)<sup>n</sup>) = (${money(Cp)} / (${cof}/12)) × (1 − 1/(1 + ${cof}/12)<sup>${n}</sup>) = ${money(Cp/ic*(1-1/Math.pow(1+ic,n)))}`,
         `Compare with the rebate option at ${money(cash)} → <b>${correct < cash ? 'financing' : 'the rebate'} wins</b>.`
       ]};
   }}
@@ -634,6 +694,9 @@ const TEMPLATES = [
     const r=pick(range(.03,.15,.0025));
     const FV=P*Math.pow(1+r,n);
     const correct=r;
+    /* the growth factor is worked from the balance as printed, to the cent, so the step
+       reproduces from the page (22 Sep 2026) */
+    const g=+FV.toFixed(2)/P;
     return {
       unit:"percent",
       tol:0.0015,
@@ -648,17 +711,20 @@ const TEMPLATES = [
         {val:Math.log(FV/P)/n, msg:`That is the continuously compounded rate. Here interest compounds annually, so the rate you want solves (1+r)<sup>${n}</sup> = ${(FV/P).toFixed(4)}.`}
       ],
       steps:[
-        `Total growth factor = ${money(FV)} / ${money(P)} = ${(FV/P).toFixed(6)}`,
-        `Undo ${n} years of compounding: r = ${(FV/P).toFixed(6)}<sup>1/${n}</sup> &minus; 1`,
+        `Total growth factor = FV / PV = ${money(FV)} / ${money(P)} = ${g.toFixed(6)}`,
+        `Undo ${n} years of compounding: r = (FV/PV)<sup>1/${n}</sup> &minus; 1 = ${g.toFixed(6)}<sup>1/${n}</sup> &minus; 1`,
         `r = ${pctS(correct,3)}`
       ]};
   }},
 
 { id:"g3", topic:"grow", name:"Solving for how long it takes", gen(){
-    let P,r,mult,exact,correct,gap;
+    let P,r,mult,exact,correct,gap,sep;
     /* Interest is credited annually, so the answer is a whole number of years.
        Reject draws where the un-rounded solve sits too close to that whole
        number to be told apart from it. */
+    /* Also re-drawn when the simple-interest count (mult-1)/r or the Rule of 72 lands within
+       sep of that whole number (22 Sep 2026, gridall.js 01): 5 at 10% and 4 at 12.5% for 1.5
+       times, 12 at 6% for doubling, all marked correct. */
     do {
       P=pick(range(500,5000,250));
       r=pick(range(.05,.20,.0025));
@@ -666,12 +732,13 @@ const TEMPLATES = [
       exact=Math.log(mult)/Math.log(1+r);
       correct=Math.ceil(exact);
       gap=(correct-exact)/correct;
-    } while (gap < 0.006);
+      sep=Math.min(0.01, gap*0.45);
+    } while (gap < 0.006 || [(mult-1)/r, 72/(r*100)].some(v => near(v, correct, sep)));
     const FV=P*mult;
     return {
       unit:"number",
       tol:Math.min(0.004, gap*0.45),
-      sep:Math.min(0.01,  gap*0.45),
+      sep,
       text:`You deposit <b>${money(P)}</b> at <b>${pctS(r)} per year, compounded annually</b>, and want
             it to grow to <b>${money(FV)}</b> &mdash; ${mult} times what you put in.`,
       ask:"Interest is credited once a year, at year end. How many whole years must you wait?",
@@ -693,11 +760,15 @@ const TEMPLATES = [
 
 /* --------------------------- simple versus compound: the gap (S5) */
 { id:"s1", topic:"simple", name:"How much interest on interest is worth", gen(){
-    let P,r,n;
-    do { P=pick([1000,2000,5000,10000]); r=pick(range(.05,.12,.0025)); n=pick([10,15,20,25,30,40,50]); }
-    while (r*n < 0.8);
-    const comp=P*Math.pow(1+r,n), simp=P*(1+r*n);
-    const correct=comp-simp;
+    let P,r,n,comp,simp,correct;
+    /* Re-drawn when Account B's balance, or B's interest, sits within 1% of the gap (22 Sep
+       2026, gridall.js 01): at 9% over 20 years B's $2,800.00 was inside the match of the
+       $2,804.41 key. Three rate-and-term pairs are lost. */
+    do {
+      P=pick([1000,2000,5000,10000]); r=pick(range(.05,.12,.0025)); n=pick([10,15,20,25,30,40,50]);
+      comp=P*Math.pow(1+r,n); simp=P*(1+r*n);
+      correct=comp-simp;
+    } while (r*n < 0.8 || [simp, P*r*n].some(v => near(v, correct, REL_SEP)));
     return {
       unit:"money",
       tol:0.002,
@@ -742,10 +813,12 @@ const TEMPLATES = [
         {val:FV/Math.pow(1+apr,m*t), msg:`You used ${m*t} periods but left the rate annual. Rate and period count have to sit on the same footing &mdash; divide the rate by ${m} as well.`},
         {val:FV/(1+apr*t), msg:`That is simple interest over ${t} years. Interest here compounds ${label}.`}
       ],
+      /* 22 Sep 2026: the periodic rate is substituted as APR/m rather than as a six-decimal
+         decimal, so the line reproduces from the page (it was up to 24 cents from the key). */
       steps:[
-        `Rate per period = ${pctS(apr)} / ${m} = ${pctS(apr/m,4)}`,
+        `Rate per period = APR / ${m} = ${pctS(apr)} / ${m} = ${pctS(apr/m,4)}`,
         `Number of periods = ${m} &times; ${t} = ${m*t}`,
-        `PV = ${money(FV)} / (1 + ${(apr/m).toFixed(6)})<sup>${m*t}</sup> = ${money(correct)}`
+        `PV = FV / (1 + APR/${m})<sup>${m*t}</sup> = ${money(FV)} / (1 + ${apr}/${m})<sup>${m*t}</sup> = ${money(correct)}`
       ]};
   }},
 
@@ -767,24 +840,41 @@ const TEMPLATES = [
         {val:Math.log(1+apr), msg:`You compounded the full APR once a year before taking logs. The quote compounds ${m} times, so the growth over a year is (1 + ${pctS(apr)}/${m})<sup>${m}</sup>, not 1 + ${pctS(apr)}.`},
         {val:Math.exp(apr)-1, msg:`That converts the other way &mdash; it treats ${pctS(apr)} as already continuous and turns it into an effective annual rate.`}
       ],
+      /* 22 Sep 2026: the growth factor is substituted as APR/m rather than as a six-decimal
+         decimal, so the line reproduces from the page (its sixth decimal was wrong on 43 of
+         195 draws). */
       steps:[
-        `Growth over one year under the quote = (1 + ${(apr/m).toFixed(6)})<sup>${m}</sup> = ${Math.pow(1+apr/m,m).toFixed(6)}`,
-        `Set e<sup>r</sup> equal to that: r = ln(${Math.pow(1+apr/m,m).toFixed(6)}) = ${m} &times; ln(1 + ${(apr/m).toFixed(6)})`,
+        `Growth over one year under the quote = (1 + APR/${m})<sup>${m}</sup> = (1 + ${apr}/${m})<sup>${m}</sup> = ${Math.pow(1+apr/m,m).toFixed(6)}`,
+        `Set e<sup>r</sup> equal to that: r = ln[(1 + APR/${m})<sup>${m}</sup>] = ${m} &times; ln(1 + ${apr}/${m})`,
         `r = ${pctS(correct,3)} &mdash; below the quoted ${pctS(apr)}, as it must be.`
       ]};
   }},
 
 /* --------------------------- annuity + zero decomposition (S6) */
 { id:"z1", topic:"bond", name:"Splitting a bond into an annuity and a zero", gen(){
-    let c,y;
-    do { c=pick(range(.02,.09,.0025)); y=pick(range(.02,.09,.0025)); } while (Math.abs(c-y)<0.005);
-    const T=pick([2,3,5,7,10]), F=1000, cpn=F*c/2, i=y/2, n=2*T;
-    let ann=0; for(let k=1;k<=n;k++) ann += cpn/Math.pow(1+i,k);
-    const zero=F/Math.pow(1+i,n);
+    let c,y,T,F,cpn,i,n,ann,zero;
+    const cents = v => Math.round(v*100);
+    /* Re-drawn when the annuity and the zero, each to the cent, do not add to the price to the
+       cent (22 Sep 2026, gridall.js 01): on 896 of 3,650 draws price - annuity, from the stem,
+       came out a cent off the zero and the check line did not add up. About a quarter of draws
+       are lost. */
+    do {
+      c=pick(range(.02,.09,.0025)); y=pick(range(.02,.09,.0025));
+      T=pick([2,3,5,7,10]); F=1000; cpn=F*c/2; i=y/2; n=2*T;
+      ann=0; for(let k=1;k<=n;k++) ann += cpn/Math.pow(1+i,k);
+      zero=F/Math.pow(1+i,n);
+    } while (Math.abs(c-y)<0.005 || cents(ann)+cents(zero) !== cents(ann+zero));
     const correct=zero;
     return {
       unit:"money",
-      tol:0.002,
+      /* Tolerance set 22 Sep 2026 from the full-grid check (gridall.js 01): discounting the face
+         T times at y instead of 2T times at y/2 was inside the old 0.2% match on 1,317 of 3,650
+         draws, because the two differ by about T*y^2/4 (0.02% at 2% over 2 years). Its smallest
+         gap on the grid is $0.19. Accept anything within 6 cents of the zero: price - annuity from
+         the stem gives it to the cent, and a discount or growth factor rounded to four decimals
+         lands within $0.05. sep 12 cents (>= tol) keeps the slip, and the annuity piece, whose
+         smallest gap is $0.42, on screen. */
+      tol:0.06/zero, sep:0.12/zero,
       text:`A <b>${T}-year</b> note, face <b>${money(F)}</b>, pays ${art(c)} <b>${pctS(c)} p.a.</b>
             coupon, paid semiannually, and yields <b>${pctS(y)} p.a. compounded semiannually</b>. Its price is
             <b>${money(ann+zero)}</b>, which splits into two pieces: an annuity of the coupons, worth
@@ -798,9 +888,9 @@ const TEMPLATES = [
         {val:F/Math.pow(1+y,T), msg:`You discounted ${T} times at ${pctS(y)} instead of ${n} times at ${pctS(i,3)}. Both the rate and the period count are semiannual here.`}
       ],
       steps:[
-        `The zero is just the face value discounted over the whole life: ${money(F)} / (1+${i.toFixed(4)})<sup>${n}</sup>`,
-        `Zero = ${money(correct)}`,
-        `Check: ${money(ann)} + ${money(correct)} = ${money(ann+correct)}, the price.`,
+        `The zero is just the face value discounted over the whole life: Zero = F / (1 + y/2)<sup>2T</sup>`,
+        `Zero = ${money(F)} / (1 + ${i.toFixed(5)})<sup>${n}</sup> = ${money(correct)}`,
+        `Check: annuity + zero = ${money(ann)} + ${money(correct)} = ${money(ann+correct)}, the price.`,
         `Every coupon bond splits this way, and the habit is worth keeping.`
       ]};
   }},
@@ -856,23 +946,26 @@ const TEMPLATES = [
 
 /* --------------------------- annuity, solving for n (S7) */
 { id:"n1", topic:"payment", also:["annuity"], name:"How long a loan takes to repay", gen(){
-    let L,i,C;
+    let L,i,C,exact,correct,gap,sep;
+    /* Also re-drawn when "a year of interest up front", L(1+i)^12/C, or "interest fixed at
+       L*i", L/(C - L*i), lands within sep of the count (22 Sep 2026, gridall.js 01): on 1,989
+       draws one of them was inside the match and marked correct. */
     do {
       L=pick(range(5000,40000,500));
       i=pick(range(.004,.015,.0005));          // monthly rate
       C=pick(range(200,1200,25));
+      exact=-Math.log(1-L*i/C)/Math.log(1+i);
+      correct=Math.ceil(exact);
+      gap=(correct-exact)/correct;
+      sep=Math.min(0.01, gap*0.45);
     } while (C <= L*i*1.25 || C > L*0.09 ||
              /* the un-rounded solve must stay distinguishable from the count */
-             (Math.ceil(-Math.log(1-L*i/C)/Math.log(1+i))
-              + Math.log(1-L*i/C)/Math.log(1+i))
-             / Math.ceil(-Math.log(1-L*i/C)/Math.log(1+i)) < 0.006);
-    const exact=-Math.log(1-L*i/C)/Math.log(1+i);
-    const correct=Math.ceil(exact);
-    const gap=(correct-exact)/correct;
+             gap < 0.006 ||
+             [L*Math.pow(1+i,12)/C, L/(C-L*i)].some(v => near(v, correct, sep)));
     return {
       unit:"number",
       tol:Math.min(0.004, gap*0.45),
-      sep:Math.min(0.01,  gap*0.45),
+      sep,
       text:`You owe <b>${money(L)}</b> on a card charging <b>${pctS(i,3)} per month</b>, and you pay
             <b>${money(C)}</b> at the end of every month until it is cleared.`,
       ask:"How many monthly payments does it take to clear the balance? The last one may be smaller than the rest.",
@@ -940,9 +1033,11 @@ const TEMPLATES = [
         {val:later*R, msg:`You grew it forward instead of discounting it back. A payment arriving later is worth <em>less</em> today, not more.`},
         {val:later/Math.pow(1+feePct,12), msg:`You used 12 periods. At a fortnightly roll there are 26 in a year.`}
       ],
+      /* 22 Sep 2026: the division used to be by the factor rounded to 11.92, which gives $209.73,
+         not the $209.76 printed; written formula first with the exact factor (Anh's rules). */
       steps:[
-        `One year of compounding = (1 + ${feePct})<sup>26</sup> = ${R.toFixed(2)}`,
-        `PV = ${money(later)} / ${R.toFixed(2)} = ${money(correct)}`,
+        `One year of compounding = (1 + ${feePct})<sup>26</sup> = ${R.toFixed(4)}`,
+        `PV = FV / (1 + r)<sup>26</sup> = ${money(later)} / (1 + ${feePct})<sup>26</sup> = ${money(correct)}`,
         `Which is why, at a rate like this, a small amount today beats a large amount in a year.`
       ]};
   }}
@@ -1048,6 +1143,9 @@ const TEMPLATES = [
     const y=pick(range(.03,.11,.0025));
     const P=F/Math.pow(1+y,n);
     const correct=y;
+    /* the growth factor is worked from the price as printed, to the cent, so the step
+       reproduces from the page (22 Sep 2026) */
+    const g=F/+P.toFixed(2);
     return {
       unit:"percent", tol:0.0015,
       text:`A <b>zero-coupon</b> bond pays <b>${money(F)}</b> in <b>${n} years</b> and nothing before
@@ -1062,8 +1160,8 @@ const TEMPLATES = [
       ],
       steps:[
         `A zero has one cash flow, so P = F / (1+y)<sup>${n}</sup>`,
-        `(1+y)<sup>${n}</sup> = ${money(F)} / ${money(P)} = ${(F/P).toFixed(6)}`,
-        `y = ${(F/P).toFixed(6)}<sup>1/${n}</sup> &minus; 1 = ${pctS(correct,3)}`,
+        `(1+y)<sup>${n}</sup> = F / P = ${money(F)} / ${money(P)} = ${g.toFixed(6)}`,
+        `y = (F/P)<sup>1/${n}</sup> &minus; 1 = ${g.toFixed(6)}<sup>1/${n}</sup> &minus; 1 = ${pctS(correct,3)}`,
         `Notice the direction: the price came from the market, and the yield was backed out of it.`
       ]};
   }},
@@ -1097,8 +1195,10 @@ const TEMPLATES = [
 
 { id:"a2", topic:"annuity", name:"How many payments will it take?", gen(){
     const C=pick(range(300,1000,50));
-    const r=pick(range(.02,.09,.005));
-    const n=pick([6,8,10,12,15,20]);
+    let r,n;
+    /* Re-drawn when the perpetuity count 1/r is within 1% of n (22 Sep 2026, gridall.js 01):
+       at 5% with 20 payments it is exactly 20 and was marked correct. */
+    do { r=pick(range(.02,.09,.005)); n=pick([6,8,10,12,15,20]); } while (near(1/r, n, REL_SEP));
     const PV=C/r*(1-Math.pow(1+r,-n));
     const correct=n;
     return {
@@ -1112,7 +1212,8 @@ const TEMPLATES = [
         {val:PV/C, msg:`That ignores interest entirely &mdash; it is how many payments it would take if the money simply sat there. Because the balance earns ${pctS(r)} along the way, it supports <em>more</em> payments than that.`},
         {val:1/r, msg:`That is how many payments a <b>perpetuity</b> is worth in the sense that C/r = C &times; (1/r). This fund stops, so it is worth less and runs for fewer than that.`},
         {val:PV/C*(1+r), msg:`Close in spirit, but adding one year of interest to the undiscounted count is not how the annuity formula unwinds. Solve (1+r)<sup>&minus;n</sup> = 1 &minus; PV&times;r/C for n.`},
-        {val:Math.round(PV/(C-PV*r)), msg:`That assumes the interest charge stays fixed at ${money(PV*r)} for the whole term. It falls as the balance falls.`}
+        /* not rounded (22 Sep 2026): rounded, it came to exactly 6 at 2-3% with 6 payments */
+        {val:PV/(C-PV*r), msg:`That assumes the interest charge stays fixed at ${money(PV*r)} for the whole term. It falls as the balance falls.`}
       ],
       steps:[
         `PV = (C/r)(1 &minus; (1+r)<sup>&minus;n</sup>)`,
@@ -1128,6 +1229,9 @@ const TEMPLATES = [
     const n=pick([10,15,20,25,30]);
     const perp=C/r, ann=C/r*(1-Math.pow(1+r,-n));
     const correct=perp-ann;
+    /* the tail in the worked solution is the difference of the two figures printed above it,
+       so it reproduces from the page; it can sit a cent from the key (22 Sep 2026) */
+    const tailP=(Math.round(perp*100)-Math.round(ann*100))/100;
     return {
       unit:"money", tol:0.002,
       text:`A perpetuity pays <b>${money(C)}</b> a year forever. The discount rate is <b>${pctS(r)} per year, compounded annually</b>,
@@ -1143,7 +1247,7 @@ const TEMPLATES = [
       steps:[
         `Whole perpetuity = C/r = ${money(perp)}`,
         `First ${n} payments = (C/r)(1 &minus; (1+r)<sup>&minus;${n}</sup>) = ${money(ann)}`,
-        `Tail = ${money(perp)} &minus; ${money(ann)} = ${money(correct)}, which is ${(100*correct/perp).toFixed(0)}% of the value`,
+        `Tail = whole &minus; first ${n} payments = ${money(perp)} &minus; ${money(ann)} = ${money(tailP)}, which is ${(100*correct/perp).toFixed(0)}% of the value`,
         `Equivalently the tail is just the whole perpetuity discounted ${n} years: ${money(perp)}/(1+${r})<sup>${n}</sup>.`
       ]};
   }},
@@ -1260,6 +1364,11 @@ const CHOICE_TEMPLATES = [
     const label = {2:"semiannually",4:"quarterly",12:"monthly"}[m];
     const fault = pick(["rate","multiply"]);
     const per   = (fault==="rate") ? apr : apr/m;
+    /* The rate Step 2 works with is written from the APR, not as a six-decimal decimal (22 Sep
+       2026, gridall.js 01): apr/12 rounded to six decimals is not the rate Step 3 then used, so
+       Step 3 was out in the fourth decimal on 48 of 222 draws. Written this way both steps
+       reproduce exactly, and multiplying really does give the APR back. */
+    const base  = (fault==="rate") ? pctS(apr) : `${pctS(apr)} &divide; ${m}`;
     const grow  = (fault==="multiply") ? 1 + m*per : Math.pow(1+per,m);
     const ear   = grow - 1;
     const s = [
@@ -1267,8 +1376,8 @@ const CHOICE_TEMPLATES = [
         ? `<b>Step 1.</b> The rate per period = ${pctS(apr)}`
         : `<b>Step 1.</b> The rate per period = ${pctS(apr)} &divide; ${m} = ${pctS(per,4)}`,
       fault==="multiply"
-        ? `<b>Step 2.</b> One dollar grows to 1 + ${m} &times; ${per.toFixed(6)} over a year`
-        : `<b>Step 2.</b> One dollar grows to (1 + ${per.toFixed(6)})<sup>${m}</sup> over a year`,
+        ? `<b>Step 2.</b> One dollar grows to 1 + ${m} &times; (${base}) over a year`
+        : `<b>Step 2.</b> One dollar grows to (1 + ${base})<sup>${m}</sup> over a year`,
       `<b>Step 3.</b> So the effective annual rate = ${pctS(ear,4)}`
     ];
     const fine = [
@@ -1280,7 +1389,7 @@ const CHOICE_TEMPLATES = [
     if (fault==="rate"){
       at=0; why=`The ${pctS(apr)} is the APR &mdash; a nominal <em>annual</em> figure. The rate actually charged each period is ${pctS(apr)} &divide; ${m} = ${pctS(apr/m,4)}. Compounding the full APR ${m} times gives ${pctS(Math.pow(1+apr,m)-1,2)}, which is nonsense.`;
     } else {
-      at=1; why=`That multiplies instead of compounding, which just returns the APR you started with. Interest earns interest, so the periodic rate is raised to the power ${m}: (1 + ${per.toFixed(6)})<sup>${m}</sup>.`;
+      at=1; why=`That multiplies instead of compounding, which just returns the APR you started with. Interest earns interest, so the periodic rate is raised to the power ${m}: (1 + ${base})<sup>${m}</sup>.`;
     }
     return {
       mode:"choice",
@@ -1289,8 +1398,8 @@ const CHOICE_TEMPLATES = [
       ask:"Which step introduces the mistake?",
       options: s.map((html,k)=>({html, correct:k===at, msg: k===at ? why : fine[k]})),
       steps:[
-        `Rate per period = ${pctS(apr)} &divide; ${m} = ${pctS(apr/m,4)}`,
-        `EAR = (1 + ${(apr/m).toFixed(6)})<sup>${m}</sup> &minus; 1 = ${pctS(Math.pow(1+apr/m,m)-1,4)}`,
+        `Rate per period = APR / ${m} = ${pctS(apr)} / ${m} = ${pctS(apr/m,4)}`,
+        `EAR = (1 + APR/${m})<sup>${m}</sup> &minus; 1 = (1 + ${apr}/${m})<sup>${m}</sup> &minus; 1 = ${pctS(Math.pow(1+apr/m,m)-1,4)}`,
         `Divide first, then compound. Doing either alone gives the wrong answer.`
       ]};
   }},
@@ -1355,8 +1464,10 @@ const CHOICE_TEMPLATES = [
       `<b>Step 3.</b> The payments must have a present value equal to the loan, so C &times; (1/i)(1 &minus; 1/(1+i)<sup>n</sup>) = ${money(L)}`,
       fault==="split"
         ? `<b>Step 4.</b> C = ${money(L)} / ${n} = ${money(L/n)}`
+        /* the interest-only step is worked from the APR itself, so its own arithmetic holds to the
+           cent: L x 0.003333 gave $36.66, printed as $36.67 (22 Sep 2026) */
         : fault==="interest"
-        ? `<b>Step 4.</b> C = ${money(L)} &times; ${i.toFixed(6)} = ${money(L*i)}`
+        ? `<b>Step 4.</b> C = L &times; i = ${money(L)} &times; ${pctS(apr)} &divide; 12 = ${money(L*i)}`
         : `<b>Step 4.</b> C = ${money(L)} &times; ${i.toFixed(6)} / (1 &minus; 1/(1+${i.toFixed(6)})<sup>${n}</sup>) = ${money(C)}`
     ];
     const fine = [
@@ -1391,8 +1502,13 @@ const CHOICE_TEMPLATES = [
     const X = pick(range(50,500,10)), apr = pick(range(.04,.12,.005)), k = pick([2,3,4,6]);
     const fault = pick(["rate","simple"]);
     const im = (fault==="rate") ? apr : apr/12;
-    const ik = (fault==="simple") ? im*k : Math.pow(1+im,k)-1;
-    const dep = X/ik;
+    /* Each step is worked from the figure printed before it (22 Sep 2026, gridall.js 01): the
+       planted k x i uses the monthly rate as Step 1 prints it, and Step 3 divides by Step 2's
+       rate as printed. Before, Step 3 used unrounded rates, the worked solution divided by the
+       rate to six decimals (up to $2.49 off), and on 58 draws k x i was off in the fourth
+       decimal. */
+    const ik = (fault==="simple") ? k*(+im.toFixed(6)) : Math.pow(1+im,k)-1;
+    const dep = X/(+ik.toFixed(6));
     const trueIm = apr/12, trueIk = Math.pow(1+trueIm,k)-1;
     const s = [
       fault==="rate"
@@ -1424,9 +1540,9 @@ const CHOICE_TEMPLATES = [
       ask:"Which step introduces the mistake?",
       options: s.map((html,k2)=>({html, correct:k2===at, msg: k2===at ? why : fine[k2]})),
       steps:[
-        `Monthly rate i = ${pctS(trueIm,4)}`,
-        `${k}-month rate = (1+i)<sup>${k}</sup> &minus; 1 = ${pctS(trueIk,4)}  (not ${k} &times; i = ${pctS(trueIm*k,4)})`,
-        `P = ${money(X)} / ${trueIk.toFixed(6)} = ${money(X/trueIk)}`
+        `Monthly rate i = APR / 12 = ${pctS(apr)} / 12 = ${pctS(trueIm,4)}`,
+        `${k}-month rate = (1+i)<sup>${k}</sup> &minus; 1 = (1 + ${apr}/12)<sup>${k}</sup> &minus; 1 = ${pctS(trueIk,4)}  (not ${k} &times; i = ${k} &times; ${pctS(trueIm,4)} = ${pctS(k*(+trueIm.toFixed(6)),4)})`,
+        `P = X / (${k}-month rate) = ${money(X)} / ((1 + ${apr}/12)<sup>${k}</sup> &minus; 1) = ${money(X/trueIk)}`
       ]};
   }},
 
@@ -1617,7 +1733,7 @@ const CHOICE_TEMPLATES = [
         ? `<b>Step 2.</b> The exponent is just &minus;r = &minus;${r}`
         : `<b>Step 2.</b> rt = ${r} &times; ${t} = ${expo.toFixed(4)}`,
       fault==="linear"
-        ? `<b>Step 3.</b> PV = ${money(FV)} &times; (1 &minus; ${expo.toFixed(4)}) = ${money(pv)}`
+        ? `<b>Step 3.</b> PV = ${money(FV)} &times; (1 &minus; ${expo.toFixed(4)}) = ${smoney(pv)}`
         : `<b>Step 3.</b> PV = ${money(FV)} &times; e<sup>&minus;${expo.toFixed(4)}</sup> = ${money(pv)}`
     ];
     const fine = [
@@ -1627,7 +1743,7 @@ const CHOICE_TEMPLATES = [
     ];
     let at, why;
     if (fault==="dropt"){
-      at=1; why=`The time is missing. Waiting ${t} years is not the same as waiting one &mdash; the exponent is &minus;r&times;t = &minus;${(r*t).toFixed(4)}. Step 3 then discounts a ${t}-year wait as though it were a single year, giving ${money(pv)} instead of ${money(FV*Math.exp(-r*t))}.`;
+      at=1; why=`The time is missing. Waiting ${t} years is not the same as waiting one &mdash; the exponent is &minus;r&times;t = &minus;${(r*t).toFixed(4)}. Step 3 then discounts a ${t}-year wait as though it were a single year, giving ${smoney(pv)} instead of ${money(FV*Math.exp(-r*t))}.`;
     } else {
       at=2; why=`That is the linear approximation 1 &minus; rt, which stands in for e<sup>&minus;rt</sup> only when rt is very small. Here rt = ${(r*t).toFixed(4)}, and the two differ by ${money(Math.abs(FV*Math.exp(-r*t)-FV*(1-r*t)))}.`;
     }
@@ -1649,10 +1765,17 @@ const CHOICE_TEMPLATES = [
     const m=12, per=apr/m, ear=Math.pow(1+per,m)-1;
     const C=pick(range(200,900,50)), n=pick([12,24,36,48]);
     let right=0; for(let k=1;k<=n;k++) right += C/Math.pow(1+per,k);
-    let wrong=0; for(let k=1;k<=n;k++) wrong += C/Math.pow(1+ear,k);
+    /* Step 4 discounts at the annual rate exactly as Step 2 prints it, to three decimals of a
+       percent, so that step too reproduces from the figure above it (22 Sep 2026) */
+    const earP = +pctS(ear,3).replace("%","")/100;
+    let wrong=0; for(let k=1;k<=n;k++) wrong += C/Math.pow(1+earP,k);
     const s = [
       `<b>Step 1.</b> The rate per month = ${pctS(apr)} / 12 = ${pctS(per,4)}`,
-      `<b>Step 2.</b> The effective annual rate = (1 + ${per.toFixed(6)})<sup>12</sup> &minus; 1 = ${pctS(ear,3)}`,
+      /* the monthly rate is written from the APR, so this step reproduces exactly (22 Sep 2026,
+         gridall.js 01): as a six-decimal decimal it printed 11.296% where the printed figures
+         gave 11.2954%, on 1,200 of 3,660 draws - and this item's whole point is that every step
+         is arithmetically right */
+      `<b>Step 2.</b> The effective annual rate = (1 + ${pctS(apr)}/12)<sup>12</sup> &minus; 1 = ${pctS(ear,3)}`,
       `<b>Step 3.</b> There are ${n} monthly payments of ${money(C)}`,
       `<b>Step 4.</b> Discount each payment at ${pctS(ear,3)}: PV = ${money(wrong)}`
     ];
@@ -1671,9 +1794,9 @@ const CHOICE_TEMPLATES = [
       ask:"Every step below is arithmetically correct. Which one is nevertheless wrong?",
       options: s.map((html,k)=>({html, correct:k===at, msg: k===at ? why : fine[k]})),
       steps:[
-        `Monthly rate = ${pctS(apr)} / 12 = ${pctS(per,4)}`,
+        `Monthly rate = APR / 12 = ${pctS(apr)} / 12 = ${pctS(per,4)}`,
         `Monthly payments must be discounted at the monthly rate, over ${n} months`,
-        `PV = ${money(right)}`,
+        `Ordinary annuity: PV = (C/i) &times; (1 &minus; 1/(1+i)<sup>n</sup>) = (${money(C)}/${per.toFixed(6)}) &times; (1 &minus; 1/(1+${per.toFixed(6)})<sup>${n}</sup>) = ${money(right)}`,
         `Converting to an EAR was not wrong &mdash; it was simply the wrong tool for cash flows that do not arrive annually.`
       ]};
   }},
