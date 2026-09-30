@@ -210,39 +210,57 @@ const TEMPLATES = [
        a few hundredths of a percent, which is exactly the note's point about why
        both conventions survive. Those two are drilled in e1 instead, where the
        student picks the faulty step rather than a number. */
-    const F = pick([10000,25000,50000,100000,1000000]);
-    const N = pick([84,91,98,119,126,154,182]);
-    const d = pick(range(.03,.075,.00025));
-    const correct = F*(1 - (N/360)*d);
+    let F, N, d;
+    do {
+      F = pick([10000,25000,50000,100000,1000000]);
+      N = pick([84,91,98,119,126,154,182]);
+      /* Bill quotes to two decimals, on a 5 bp grid (was 2.5 bp, e.g. 3.025%; 22 Sep 2026). */
+      d = pick(range(.03,.075,.0005));
+    /* a discount on an exact half cent rounds either way on a calculator: 530 in 20,000 draws
+       once the steps went to the one-line P = F(1 - N/360 d) (29 Sep 2026) */
+    } while (Math.abs((F*(N/360)*d*100) % 1 - 0.5) < 1e-6);
+    /* The steps print the discount in dollars and subtract it, so the key is face minus the
+       discount rounded to the cent: every printed step then reproduces from the printed
+       figures (22 Sep 2026). The unrounded price is within half a cent of it. */
+    const disc = Math.round(F*(N/360)*d*100 + 1e-6)/100;
+    const correct = F - disc;
     return {
       unit:"money",
       text:`A <b>${N}-day T-bill</b> with a face value of <b>${money(F)}</b> is quoted at a
-            <b>discount rate of ${pctS(d,3)} p.a.</b>`,
+            <b>discount rate of ${pctS(d,2)} p.a.</b>`,
       ask:"What is its price?",
       correct,
       cands:[
         {val:F*(1-d), msg:`You applied the full annual rate to a bill that runs only ${N} days. The rate has to be pro-rated for how long the bill is actually alive: ${N}/360 of a year.`},
-        {val:F*(N/360)*d, msg:`That is the <em>discount</em> &mdash; the amount knocked off the face value, ${money(F*(N/360)*d)}. The price is what is left after subtracting it: ${money(F)} &minus; ${money(F*(N/360)*d)}.`},
+        {val:F*(N/360)*d, msg:`That is the <em>discount</em> &mdash; the amount knocked off the face value, ${money(disc)}. The price is what is left after subtracting it: ${money(F)} &minus; ${money(disc)}.`},
         {val:F*(1+(N/360)*d), msg:`Sign error &mdash; you added the discount instead of subtracting it. A bill always sells <em>below</em> face; that gap is the entire return.`},
         {val:F*(1-(N/360)*d)*(1-(N/360)*d), msg:`You applied the discount twice. One application of (1 &minus; (N/360)d) is all it takes.`}
       ],
       steps:[
-        `Horizon adjustment = ${N}/360 = ${(N/360).toFixed(6)}`,
-        `Discount = ${(N/360).toFixed(6)} &times; ${pctS(d,3)} = ${pctS((N/360)*d,4)} of face`,
-        `P = ${money(F)} &times; (1 &minus; ${((N/360)*d).toFixed(6)}) = ${money(correct)}`
+        `A bill's price is P = F &times; (1 &minus; N/360 &times; d): the discount rate is quoted on actual/360, so a ${N}-day bill loses ${N}/360 of it`,
+        `P = ${money(F)} &times; (1 &minus; ${N}/360 &times; ${+d.toFixed(6)}) = ${money(correct)}`
       ]};
   }},
 
 /* ------------------------------------------------ bills: back out the discount rate */
 { id:"b2", topic:"bill", name:"Recovering the discount rate from a price", gen(){
     const F = pick([10000,50000,100000]);
-    const N = pick([28,56,84,91,119,154,182]);
-    const d = pick(range(.02,.07,.00025));
+    let N, d;
+    /* The quote is to two decimals, on a 5 bp grid like b1 and b3 (was 2.5 bp).
+       Dividing by the price instead of the face value gives d/(1 - Nd/360), which sits
+       Nd/360 above the key. On 28-day bills below 3.9% that is under 0.3%, and under the
+       0.25% match tolerance below 3.2%, so the slip scored: re-draw those (22 Sep 2026). */
+    do {
+      N = pick([28,56,84,91,119,154,182]);
+      d = pick(range(.02,.07,.0005));
+    } while (N*d/360 < 0.003);
     const P = F*(1 - (N/360)*d);
+    const PC = Math.round(P*100)/100;                 // the price as printed, to the cent
+    const fr = (F-PC)/F;                              // the steps work from the printed price
     const correct = d;
     return {
       unit:"percent",
-      text:`A <b>${N}-day T-bill</b> with face value <b>${money(F)}</b> is trading at <b>${money(P)}</b>.`,
+      text:`A <b>${N}-day T-bill</b> with face value <b>${money(F)}</b> is trading at <b>${money(PC)}</b>.`,
       ask:"What discount rate is it quoted at?",
       correct,
       cands:[
@@ -252,25 +270,37 @@ const TEMPLATES = [
         {val:F/P-1, msg:`That is the ${N}-day return &mdash; the gain over the price, unannualised. It is a perfectly good number, but it is not the quoted discount rate.`}
       ],
       steps:[
-        `Discount as a fraction of face = (${money(F)} &minus; ${money(P)}) / ${money(F)} = ${((F-P)/F).toFixed(8)}`,
-        `Annualise on actual/360: &times; 360/${N} = &times; ${(360/N).toFixed(6)}`,
-        `d = ${pctS(correct,3)}`
+        `A bill's price is P = F &times; (1 &minus; N/360 &times; d)`,
+        `${money(PC)} = ${money(F)} &times; (1 &minus; ${N}/360 &times; d)`,
+        `Divide by the face value: 1 &minus; ${N}/360 &times; d = ${money(PC)} / ${money(F)} = ${(1-fr).toFixed(8)}`,
+        `So ${N}/360 &times; d = 1 &minus; ${(1-fr).toFixed(8)} = ${fr.toFixed(8)}, and d = ${fr.toFixed(8)} &times; 360/${N} = ${pctS(fr*360/N,4)}`,
+        `The price is rounded to the cent, so the quote itself is d = ${pctS(correct,2)}`
       ]};
   }},
 
 /* ------------------------------------------------ bills: coupon equivalent yield */
 { id:"b3", topic:"convention", name:"Discount rate to coupon equivalent yield", gen(){
     const F = pick([10000,100000]);
-    const N = pick([28,56,84,91,119,154,182]);
-    const d = pick(range(.02,.07,.00025));
+    let N, d;
+    /* Bill quotes to two decimals, on a 5 bp grid (was 2.5 bp, e.g. 3.025%). Dividing the
+       gain by face instead of the price gives d x 365/360, which sits Nd/360 below the key:
+       on 28-day bills below 3.25% that is under 0.25%, too close to the 0.15% tolerance
+       once the printed price is rounded to the cent, so re-draw them (22 Sep 2026). */
+    do {
+      N = pick([28,56,84,91,119,154,182]);
+      d = pick(range(.02,.07,.0005));
+    } while (N*d/360 < 0.0025);
     const P = F*(1 - (N/360)*d);
-    const rN = F/P - 1;
+    /* the key works from the price as printed, to the cent, and from the return as the
+       steps print it (six decimals of a percent), so every step reproduces */
+    const PC = Math.round(P*100)/100;
+    const rN = +(F/PC - 1).toFixed(8);
     const correct = rN*(365/N);
     return {
       unit:"percent",
       tol:0.0015,
       text:`A <b>${N}-day T-bill</b> with face value <b>${money(F)}</b> is quoted at a discount rate of
-            <b>${pctS(d,3)} p.a.</b>, so it costs <b>${money(P)}</b>. Hold it to maturity and you receive
+            <b>${pctS(d,2)} p.a.</b>, so it costs <b>${money(PC)}</b>. Hold it to maturity and you receive
             the full ${money(F)}.`,
       ask:"What is the coupon equivalent yield (the simple annualised return, actual/365)?",
       correct,
@@ -278,13 +308,12 @@ const TEMPLATES = [
         {val:d, msg:`That is the quoted discount rate, and it is <em>not</em> what you earn. Two separate reasons: the discount is measured against face value rather than against the price you actually paid, and it is annualised on a 360-day year rather than 365. Both push the quoted number below the true return.`},
         {val:rN*(360/N), msg:`You annualised on a 360-day year. The return itself is real money over real days, so it goes on an actual/365 basis. The 360 belongs to the quoting convention, not to the return.`},
         {val:rN, msg:`That is the return over the ${N} days, which is the right first step &mdash; now put it on an annual footing by multiplying by 365/${N}.`},
-        {val:(1-P/F)*(365/N), msg:`You divided the gain by face value rather than by the price you paid. Your return is measured against what you actually put in, ${money(P)}, not against ${money(F)}.`}
+        {val:(1-P/F)*(365/N), msg:`You divided the gain by face value rather than by the price you paid. Your return is measured against what you actually put in, ${money(PC)}, not against ${money(F)}.`}
       ],
       steps:[
-        `Return over ${N} days = ${money(F)}/${money(P)} &minus; 1 = ${pctS(rN,4)}`,
-        `Annualise on actual/365: ${pctS(rN,4)} &times; 365/${N} = ${pctS(rN,4)} &times; ${(365/N).toFixed(6)}`,
-        `Coupon equivalent yield = ${pctS(correct,3)}`,
-        `Note it exceeds the quoted ${pctS(d,3)} &mdash; it always does, for both of the reasons above.`
+        `Return over ${N} days = F/P &minus; 1 = ${money(F)}/${money(PC)} &minus; 1 = ${pctS(rN,6)}`,
+        `Annualise on actual/365: coupon equivalent yield = return &times; 365/N = ${pctS(rN,6)} &times; 365/${N} = ${pctS(correct,3)}`,
+        `It is above the quoted ${pctS(d,2)} for two reasons: the gain is measured against the ${money(PC)} you pay, not the ${money(F)} face, and it is annualised over 365 days, not 360.`
       ]};
   }},
 
@@ -314,9 +343,9 @@ const TEMPLATES = [
         {val:Math.pow(1+rN, 365/N)-1, msg:`That compounds all the way out to a full year, giving an effective annual rate. The note's yield is not an effective annual rate; it is an APR on a semiannual footing.`}
       ],
       steps:[
-        `Return per ${N} days = ${pctS(rN,4)}`,
-        `Compound out to half a year: (1 + ${rN.toFixed(6)})<sup>183/${N}</sup> &minus; 1 = ${pctS(semi,4)}`,
-        `Double it for an APR: 2 &times; ${pctS(semi,4)} = ${pctS(correct,3)}`
+        `A yield y quoted per annum compounded semiannually turns $1 into 1 + y/2 in half a year (183 days)`,
+        `The bill turns $1 into ${(1+rN).toFixed(6)} every ${N} days, so over 183 days $1 grows to (${(1+rN).toFixed(6)})<sup>183/${N}</sup> = ${(1+semi).toFixed(6)}`,
+        `The two must grow $1 to the same amount: 1 + y/2 = ${(1+semi).toFixed(6)}, so y = 2 &times; ${semi.toFixed(6)} = ${pctS(correct,3)}`
       ]};
   }},
 
@@ -350,10 +379,10 @@ const TEMPLATES = [
         {val:wrongTperiods, msg:`You used ${T} periods instead of ${n}. Coupon, rate and period count all sit on the same six-month footing &mdash; halve the first two and you must double the third.`}
       ],
       steps:[
-        `Coupon per period = ${pctS(c)} &times; ${money(F)} / 2 = ${money(cpn)}`,
-        `Rate per period = ${pctS(y)} / 2 = ${pctS(i,3)}; periods = ${T} &times; 2 = ${n}`,
-        `P = ${money(cpn)} &times; annuity factor + ${money(F)} / (1+${i.toFixed(4)})<sup>${n}</sup>`,
-        `P = ${money(correct)} &mdash; ${correct>F?"a premium, because the coupon beats the yield":"a discount, because the yield beats the coupon"}.`
+        `Coupon per period C = ${pctS(c)} &times; ${money(F)} / 2 = ${money(cpn)}; rate per period i = ${pctS(y)} / 2 = ${pctS(i,3)}; periods n = ${T} &times; 2 = ${n}`,
+        `Price = the coupons as an annuity + the face value discounted: P = (C/i) &times; (1 &minus; 1/(1+i)<sup>n</sup>) + F/(1+i)<sup>n</sup>`,
+        `P = (${money(cpn)} / ${+i.toFixed(6)}) &times; (1 &minus; 1/(1 + ${+i.toFixed(6)})<sup>${n}</sup>) + ${money(F)}/(1 + ${+i.toFixed(6)})<sup>${n}</sup> = ${money(correct)}`,
+        `${correct>F?"A premium, because the coupon beats the yield":"A discount, because the yield beats the coupon"}.`
       ]};
   }},
 
@@ -361,7 +390,9 @@ const TEMPLATES = [
 { id:"d1", topic:"accrued", name:"Dirty price between coupon dates", gen(){
     /* c, y and m are floored so the stub effect is large enough relative to the
        price for the wrong answers to be told apart. */
-    const T=pick([2,3,5]), F=1000;
+    /* Maturity under 3 years, so the dirty price never takes more than 5 present values by hand
+       (Anh, 29 Sep 2026; was 2, 3 or 5 years, up to 10 fractional-power terms). */
+    const T=pick([1,1.5,2,2.5]), F=1000;
     const c=pick(range(.05,.09,.005)), y=pick(range(.05,.09,.005));
     const m=pick([4,5]);                    // months since the last coupon
     const f=m/6;                            // fraction of the current period elapsed
@@ -370,6 +401,8 @@ const TEMPLATES = [
     for(let k=1;k<=n;k++) P += cpn/Math.pow(1+i, k-f);
     P += F/Math.pow(1+i, n-f);
     const correct=P;
+    /* each present value as printed, to the cent; the last line adds those (29 Sep 2026) */
+    const pvs=Array.from({length:n},(_,k)=>Math.round(((k===n-1?cpn+F:cpn)/Math.pow(1+i,k+1-f))*100)/100);
     let noStub=0; for(let k=1;k<=n;k++) noStub += cpn/Math.pow(1+i,k);
     noStub += F/Math.pow(1+i,n);
     return {
@@ -387,10 +420,10 @@ const TEMPLATES = [
         {val:correct + cpn*f, msg:`You added accrued interest to a figure that already contains it. Discounting the remaining cash flows gives the dirty price directly; accrued interest is then <em>subtracted</em> to get the clean price.`}
       ],
       steps:[
-        `Elapsed fraction of the current period = ${m}/6 = ${f.toFixed(4)}`,
-        `The next coupon is ${(1-f).toFixed(4)} of a period away, the one after ${(2-f).toFixed(4)}, and so on`,
-        `Discount each cash flow at (1+${i.toFixed(4)}) raised to those fractional powers`,
-        `Dirty price = ${money(correct)}`
+        `Each coupon C = ${pctS(c)} &times; ${money(F)} / 2 = ${money(cpn)}; the rate per period is i = ${pctS(y)} / 2 = ${pctS(i,3)}`,
+        `${m} of the 6 months have passed, so the next coupon is ${6-m}/6 of a period away and each later one a full period after that: ${n} payment${n>1?"s":""} at ${Array.from({length:n},(_,k)=>`${6*(k+1)-m}/6`).join(", ")} of a period`,
+        `Dirty price = each remaining cash flow discounted to today: P = ${Array.from({length:n},(_,k)=>`${k===n-1?`(${money(cpn)} + ${money(F)})`:money(cpn)}/(1+${+i.toFixed(6)})<sup>${6*(k+1)-m}/6</sup>`).join(" + ")}`,
+        `= ${pvs.map(money).join(" + ")} = ${money(pvs.reduce((t,v)=>t+v,0))}`
       ]};
   }},
 
@@ -401,7 +434,10 @@ const TEMPLATES = [
     const cpn=F*c/2, f=m/6;
     const dirty = pick(range(960,1060,0.37));
     const accrued = cpn*f;
-    const correct = dirty - accrued;
+    /* the key subtracts the accrued interest as printed, to the cent: on a half cent the
+       unrounded figure put the printed subtraction a cent out on 16% of draws (29 Sep 2026) */
+    const accR = Math.round(accrued*100 + 1e-6)/100;
+    const correct = dirty - accR;
     return {
       unit:"money",
       tol:0.002,
@@ -417,9 +453,9 @@ const TEMPLATES = [
         {val:accrued, msg:`That is the accrued interest itself, not the clean price. Subtract it from the dirty price.`}
       ],
       steps:[
-        `Accrued = ${m}/6 &times; ${money(cpn)} = ${money(accrued)}`,
-        `Clean = dirty &minus; accrued = ${money(dirty)} &minus; ${money(accrued)}`,
-        `Clean price = ${money(correct)}`
+        `Semiannual coupon = ${pctS(c)} &times; ${money(F)} / 2 = ${money(cpn)}`,
+        `Accrued interest = (months elapsed / 6) &times; coupon = ${m}/6 &times; ${money(cpn)} = ${money(accR)}`,
+        `Clean = dirty &minus; accrued = ${money(dirty)} &minus; ${money(accR)} = ${money(correct)}`
       ]};
   }},
 
@@ -489,16 +525,20 @@ const TEMPLATES = [
        resets after every weekly 13-week bill auction and interest accrues
        daily, so a quarter contains ~13 different index values -- a quarterly
        payment cannot be computed from a single reading. */
-    let idxOld, idxNew;
+    let idxOld, idxNew, sp, correct;
     do {
       idxOld = pick(range(.02,.055,.00025));
       idxNew = pick(range(.02,.055,.00025));
-    } while (Math.abs(idxNew-idxOld) < 0.0015);
-    /* The spread has to be a large enough slice of the coupon rate for the
-       spread-related wrong answers to be distinguishable from the right one,
-       so its floor scales with the index. */
-    const sp = pick(range(Math.max(.0005, idxNew*0.02), .0025, .00005));
-    const correct = idxNew + sp;
+      /* The spread has to be a large enough slice of the coupon rate for the
+         spread-related wrong answers to be distinguishable from the right one,
+         so its floor scales with the index. It is drawn from the half-basis-point
+         grid itself: starting the range at idxNew*0.02 put it off the grid, so the
+         stem printed "5.0 basis points" for a 5.05 bp spread (22 Sep 2026). */
+      sp = pick(range(.0005, .0025, .00005).filter(s => s >= idxNew*0.02 - 1e-12));
+      correct = idxNew + sp;
+    /* Last week's index with no spread can land within the match tolerance of the key
+       (2.175% against 2.170%), and then that double slip scores: re-draw (22 Sep 2026). */
+    } while (Math.abs(idxNew-idxOld) < 0.0015 || near(idxOld, correct, REL_MATCH));
     return {
       unit:"percent",
       text:`A Treasury FRN carries a spread of <b>${(sp*10000).toFixed(1)} basis points</b>, fixed at its
@@ -516,16 +556,20 @@ const TEMPLATES = [
       steps:[
         `The index is whatever the most recent 13-week bill auction produced: ${pctS(idxNew,3)}`,
         `The spread never moves: ${(sp*10000).toFixed(1)} bp = ${pctS(sp,4)}`,
-        `Coupon rate = ${pctS(idxNew,3)} + ${pctS(sp,4)} = ${pctS(correct,3)}`,
+        `Coupon rate = index + spread = ${pctS(idxNew,3)} + ${pctS(sp,4)} = ${pctS(correct,3)}`,
         `Next week a new bill auction resets the index again. The spread stays put for the whole two years.`
       ]};
   }},
 
 /* ------------------------------------------------ TIPS adjusted principal + coupon */
 { id:"p1", topic:"tips", name:"TIPS: adjusted principal and coupon", gen(){
-    const F=pick([1000,10000,100000]);
-    const c=pick(range(.005,.025,.00125));
-    const ratio=pick(range(1.02,1.35,0.0001));
+    let F, c, ratio;
+    do {
+      F=pick([1000,10000,100000]);
+      c=pick(range(.005,.025,.00125));
+      ratio=pick(range(1.02,1.35,0.0001));
+    /* a coupon on an exact half cent rounds either way on a calculator (329 in 20,000; 29 Sep 2026) */
+    } while (Math.abs((F*ratio*c/2*100) % 1 - 0.5) < 1e-6);
     const adj=F*ratio;
     const correct=adj*c/2;
     return {
@@ -543,9 +587,7 @@ const TEMPLATES = [
         {val:F*c*ratio, msg:`Two slips at once: the annual rather than semiannual coupon, and the adjustment applied to an annual figure. Coupon = (rate / 2) &times; adjusted principal.`}
       ],
       steps:[
-        `Adjusted principal = ${money(F)} &times; ${ratio.toFixed(5)} = ${money(adj)}`,
-        `Coupon = (${pctS(c,3)} / 2) &times; ${money(adj)}`,
-        `Payment = ${money(correct)}`
+        `Coupon = (coupon rate / 2) &times; adjusted principal = (${pctS(c,3)} / 2) &times; ${money(adj)} = ${money(correct)}`
       ]};
   }},
 
@@ -555,11 +597,17 @@ const TEMPLATES = [
     const c=pick(range(.025,.045,.0025));
     const fall=pick(range(.06,.18,.005));
     const adj=F*(1-fall);
-    const finalCoupon=adj*c/2;
+    /* The coupon is paid in cents, so round it before adding it on: otherwise a half-cent
+       coupon printed $13.42 made the total $1,013.43. Flooring the coupon too sits
+       F x fall x c/2 above the key, 0.074%-0.40% of it, so the old 0.2% tolerance let that
+       slip score on 345 of 675 draws. Every careful route here is exact to the cent (0.0005%),
+       so tol 0.05% separates them, and sep 0.07% keeps the slip as a distractor with its
+       feedback on every draw (22 Sep 2026). */
+    const finalCoupon=Math.round(adj*c/2*100 + 1e-6)/100;
     const correct=finalCoupon+F;
     return {
       unit:"money",
-      tol:0.002,
+      tol:0.0005, sep:0.0007,
       text:`A TIPS with original principal <b>${money(F)}</b> and ${art(c)} <b>${pctS(c,3)} p.a.</b> coupon
             reaches maturity after a period of deflation. Its inflation-adjusted principal has fallen to
             <b>${money(adj)}</b>.`,
@@ -572,9 +620,9 @@ const TEMPLATES = [
         {val:adj, msg:`Two slips: the adjusted principal rather than the floored original, and no final coupon.`}
       ],
       steps:[
-        `Final coupon = (${pctS(c,3)} / 2) &times; ${money(adj)} = ${money(finalCoupon)} &mdash; computed on the <em>adjusted</em> principal`,
-        `Principal repaid = max(${money(adj)}, ${money(F)}) = ${money(F)} &mdash; the deflation floor`,
-        `Total = ${money(finalCoupon)} + ${money(F)} = ${money(correct)}`,
+        `Final coupon = (coupon rate / 2) &times; adjusted principal = (${pctS(c,3)} / 2) &times; ${money(adj)} = ${money(finalCoupon)} &mdash; computed on the <em>adjusted</em> principal`,
+        `Principal repaid = max(adjusted, original) = max(${money(adj)}, ${money(F)}) = ${money(F)} &mdash; the deflation floor`,
+        `Total = final coupon + principal repaid = ${money(finalCoupon)} + ${money(F)} = ${money(correct)}`,
         `Your principal is protected against deflation; your coupons are not.`
       ]};
   }},
@@ -583,19 +631,28 @@ const TEMPLATES = [
 { id:"c2", topic:"bond", name:"Pricing an annual-pay bond", gen(){
     /* HW_01 Q1: 5-year, annual coupons, face $100, priced off a given rate.
        Reproduces that answer key exactly. */
-    let c,r;
-    do { c=pick(range(.02,.08,.0025)); r=pick(range(.02,.08,.0025)); } while (Math.abs(c-r)<0.01);
-    const T=5, F=100, cpn=F*c;
-    let P=0; for(let k=1;k<=T;k++) P += cpn/Math.pow(1+r,k);
-    P += F/Math.pow(1+r,T);
+    /* Treating the annual coupons as semiannual lands only 0.02%-0.5% from the key, so the
+       old 0.2% tolerance let it score on 366 of 444 draws. Now tol is 0.03%: the careful
+       routes -- the answer to the cent, discount factors or the annuity factor to 4
+       decimals, each cash flow's PV rounded to the cent -- are at most 0.019% out on every
+       draw. Draws where the slip is within 0.06% (twice tol) are re-drawn (367 of 444 stay),
+       and sep 0.06% keeps the slip as a distractor with its feedback (22 Sep 2026). */
+    const T=5, F=100;
+    let c, r, cpn, P, semiSlip;
+    do {
+      c=pick(range(.02,.08,.0025)); r=pick(range(.02,.08,.0025));
+      cpn=F*c;
+      P=0; for(let k=1;k<=T;k++) P += cpn/Math.pow(1+r,k);
+      P += F/Math.pow(1+r,T);
+      semiSlip=0; for(let k=1;k<=2*T;k++) semiSlip += (cpn/2)/Math.pow(1+r/2,k);
+      semiSlip += F/Math.pow(1+r/2,2*T);
+    } while (Math.abs(c-r)<0.01 || near(semiSlip,P,0.0006));
     const correct=P;
     let noDiscLast=0; for(let k=1;k<T;k++) noDiscLast += cpn/Math.pow(1+r,k);
     noDiscLast += (cpn+F);
-    let semiSlip=0; for(let k=1;k<=2*T;k++) semiSlip += (cpn/2)/Math.pow(1+r/2,k);
-    semiSlip += F/Math.pow(1+r/2,2*T);
     return {
       unit:"money",
-      tol:0.002,
+      tol:0.0003, sep:0.0006,
       text:`A <b>5-year</b> bond with a face value of <b>${money(F)}</b> pays a <b>${pctS(c)} p.a.</b>
             coupon, <b>paid annually</b>. The appropriate discount rate is <b>${pctS(r)} p.a., compounded
             annually</b>.`,
@@ -608,9 +665,10 @@ const TEMPLATES = [
         {val:semiSlip, msg:`You treated the coupons as semiannual. This bond pays <b>annually</b> &mdash; five payments of ${money(cpn)}, not ten of ${money(cpn/2)}.`}
       ],
       steps:[
-        `Coupon = ${pctS(c)} &times; ${money(F)} = ${money(cpn)} once a year, for 5 years`,
-        `P = ${money(cpn)}/(1+r) + &hellip; + (${money(cpn)} + ${money(F)})/(1+r)<sup>5</sup>`,
-        `P = ${money(correct)} &mdash; ${correct>F?"a premium":"a discount"}, since the coupon ${c>r?"beats":"falls short of"} the discount rate.`
+        `Coupon C = ${pctS(c)} &times; ${money(F)} = ${money(cpn)} once a year, for n = 5 years; r = ${pctS(r)}`,
+        `Price = the coupons as an annuity + the face value discounted: P = (C/r) &times; (1 &minus; 1/(1+r)<sup>n</sup>) + F/(1+r)<sup>n</sup>`,
+        `P = (${money(cpn)} / ${+r.toFixed(6)}) &times; (1 &minus; 1/(1 + ${+r.toFixed(6)})<sup>5</sup>) + ${money(F)}/(1 + ${+r.toFixed(6)})<sup>5</sup> = ${money(correct)}`,
+        `${correct>F?"A premium":"A discount"}, since the coupon ${c>r?"beats":"falls short of"} the discount rate.`
       ]};
   }},
 
@@ -643,14 +701,20 @@ const TEMPLATES = [
 
 /* ------------------------------------------------ breakeven inflation (S13) */
 { id:"br1", topic:"tips", name:"Breakeven inflation", gen(){
-    const nom=pick(range(.025,.055,.00025));
-    const real=pick(range(.004,.022,.00025));
+    /* Yields to two decimals, on a 5 bp grid (was 2.5 bp, e.g. 2.525%). A nominal yield
+       exactly twice the TIPS yield (2.50% and 1.25%) makes the TIPS yield equal the
+       breakeven, and that slip scores: re-draw it (22 Sep 2026). */
+    let nom, real;
+    do {
+      nom=pick(range(.025,.055,.0005));
+      real=pick(range(.004,.022,.0005));
+    } while (near(real, nom-real, REL_SEP));
     const correct=nom-real;
     return {
       unit:"percent",
       tol:0.0015,
-      text:`A 10-year nominal Treasury yields <b>${pctS(nom,3)} p.a.</b> A 10-year TIPS of the same maturity
-            yields <b>${pctS(real,3)} p.a.</b>`,
+      text:`A 10-year nominal Treasury yields <b>${pctS(nom,2)} p.a.</b> A 10-year TIPS of the same maturity
+            yields <b>${pctS(real,2)} p.a.</b> Both yields are compounded semiannually.`,
       ask:"What is the breakeven inflation rate?",
       correct,
       cands:[
@@ -661,8 +725,8 @@ const TEMPLATES = [
       ],
       steps:[
         `Breakeven = nominal yield &minus; TIPS yield`,
-        `= ${pctS(nom,3)} &minus; ${pctS(real,3)} = ${pctS(correct,3)}`,
-        `Above ${pctS(correct,3)} average inflation the TIPS wins; below it the nominal bond does.`,
+        `= ${pctS(nom,2)} &minus; ${pctS(real,2)} = ${pctS(correct,2)}`,
+        `Above ${pctS(correct,2)} average inflation the TIPS wins; below it the nominal bond does.`,
         `It is a market forecast &mdash; read off a price, not from a survey or a model.`
       ]};
   }},
@@ -711,14 +775,20 @@ const TEMPLATES = [
        because every wrong answer is then far from it in relative terms. */
     const F=pick([10000,100000,1000000]);
     const N=pick([60,90,120,150,180]);
-    const r=pick(range(.03,.075,.00025));
-    const bank=F*(1-(N/360)*r);
-    const pv=F/(1+(N/365)*r);
+    const r=pick(range(.03,.075,.0005));          // two decimals, 5 bp grid (was 2.5 bp; 22 Sep 2026)
+    /* Both figures are printed to the cent, and the gap is their difference as printed, so
+       the worked solution reproduces. On $10,000 the gap can be under $1, where a cent is
+       over 1%: tol accepts an answer a cent either way (a student who keeps the PV
+       unrounded, or recomputes the bank figure too), and sep stays at least tol. Every
+       distractor sits more than 20% from the key (22 Sep 2026). */
+    const bank=Math.round(F*(1-(N/360)*r)*100)/100;
+    const pv=Math.round(F/(1+(N/365)*r)*100)/100;
     const correct=pv-bank;
+    const tol=Math.max(0.004, 0.0101/correct);
     return {
       unit:"money",
-      tol:0.004,
-      text:`A <b>${N}-day</b> cash flow of <b>${money(F)}</b> is valued at <b>${pctS(r,3)} p.a.</b> The bill
+      tol, sep:Math.max(REL_SEP, tol),
+      text:`A <b>${N}-day</b> cash flow of <b>${money(F)}</b> is valued at <b>${pctS(r,2)} p.a.</b> The bill
             market's <b>bank discount basis</b> multiplies by (1 &minus; rate &times; N/360), giving
             <b>${money(bank)}</b>. The <b>present value basis</b> instead divides by
             (1 + rate &times; N/365).`,
@@ -732,9 +802,9 @@ const TEMPLATES = [
         {val:F*(N/360)*r, msg:`That is the whole discount &mdash; the amount knocked off the face value. The two conventions disagree by far less than that.`}
       ],
       steps:[
-        `Bank discount: ${money(F)} &times; (1 &minus; ${N}/360 &times; ${pctS(r,3)}) = ${money(bank)}`,
-        `Present value: ${money(F)} / (1 + ${N}/365 &times; ${pctS(r,3)}) = ${money(pv)}`,
-        `Gap = ${money(correct)} on ${money(F)}`,
+        `Bank discount: F &times; (1 &minus; rate &times; N/360) = ${money(F)} &times; (1 &minus; ${pctS(r,2)} &times; ${N}/360) = ${money(bank)}`,
+        `Present value: F / (1 + rate &times; N/365) = ${money(F)} / (1 + ${pctS(r,2)} &times; ${N}/365) = ${money(pv)}`,
+        `Gap = present value &minus; bank discount = ${money(pv)} &minus; ${money(bank)} = ${money(correct)} on ${money(F)}`,
         `Small &mdash; which is why both survive. Not zero &mdash; which is why you have to know which one you are being quoted.`
       ]};
   }},
@@ -752,6 +822,10 @@ const TEMPLATES = [
        where 50 is not. */
     const clean=pick(range(92,108,0.5));
     const correct=clean+accrued;
+    /* A coupon in eighths is a half-cent on $100 of face ($3.125), so the steps print it
+       exactly: rounded to $3.13, "4/6 x $3.13 = $2.08" did not reproduce on 165 of 1,287
+       draws (22 Sep 2026). */
+    const px = v => "$" + v.toFixed(Math.round(v*1000)%10 ? 3 : 2);
     return {
       unit:"money",
       tol:0.002,
@@ -764,11 +838,11 @@ const TEMPLATES = [
         {val:clean, msg:`That is the quoted price, and quotes are <b>clean</b>. What changes hands is the dirty price &mdash; clean plus the interest the seller has earned but not yet been paid.`},
         {val:clean-accrued, msg:`Wrong direction. Going from a quote to a payment you <em>add</em> accrued interest; subtracting it is the journey the other way, from what you pay to what gets printed.`},
         {val:clean+cpn, msg:`You added a whole coupon. Only ${m} of the six months has elapsed, so the seller has earned ${m}/6 of it &mdash; ${money(accrued)}.`},
-        {val:clean+F*c*m/6, msg:`You pro-rated the <em>annual</em> coupon of ${money(F*c)}. Interest accrues toward the next payment, which is the semiannual ${money(cpn)}.`}
+        {val:clean+F*c*m/6, msg:`You pro-rated the <em>annual</em> coupon of ${money(F*c)}. Interest accrues toward the next payment, which is the semiannual ${px(cpn)}.`}
       ],
       steps:[
-        `Semiannual coupon = ${pctS(c)} &times; $100 / 2 = ${money(cpn)}`,
-        `Accrued = ${m}/6 &times; ${money(cpn)} = ${money(accrued)}`,
+        `Semiannual coupon = coupon rate &times; $100 / 2 = ${pctS(c)} &times; $100 / 2 = ${px(cpn)}`,
+        `Accrued = (months elapsed / 6) &times; semiannual coupon = (${m}/6) &times; ${px(cpn)} = ${money(accrued)}`,
         `Dirty = quoted clean + accrued = ${money(clean)} + ${money(accrued)} = ${money(correct)}`,
         `The quote is always the smaller number. Budget for more than you read.`
       ]};
@@ -782,7 +856,11 @@ const TEMPLATES = [
     const y1=y0+0.01;
     const px=(y)=>{ const i=y/2,n=2*T; let P=0;
       for(let k=1;k<=n;k++) P+=F*c/2/Math.pow(1+i,k); return P+F/Math.pow(1+i,n); };
-    const P0=px(y0), P1=px(y1);
+    /* Both prices are printed to the cent, so the key is the change those printed figures
+       give: from the unrounded prices, "($961.92 - $980.73) / $980.73 = -1.917%" was a last
+       digit out on 1,127 of 3,675 draws. The key moves by at most 0.06% of itself, a seventh
+       of the tolerance (22 Sep 2026). */
+    const P0=Math.round(px(y0)*100)/100, P1=Math.round(px(y1)*100)/100;
     const correct=(P1-P0)/P0;
     return {
       unit:"percent",
@@ -799,9 +877,9 @@ const TEMPLATES = [
         {val:-0.01, msg:`That is the yield change itself, not the price change. A 100 basis point move in yield does not mean a 1% move in price &mdash; how much the price moves depends on how long the money is tied up.`}
       ],
       steps:[
-        `Price at ${pctS(y0)}: ${money(P0)}`,
-        `Price at ${pctS(y1)}: ${money(P1)}`,
-        `Change = (${money(P1)} &minus; ${money(P0)}) / ${money(P0)} = ${pctS(correct,3)}`,
+        `C = ${pctS(c)} &times; ${money(F)} / 2 = ${money(F*c/2)} per half-year, for n = ${T} &times; 2 = ${2*T} half-years; P = (C/i) &times; (1 &minus; 1/(1+i)<sup>n</sup>) + F/(1+i)<sup>n</sup>`,
+        ...[[y0,P0],[y1,P1]].map(([y,Pz]) => `At ${pctS(y)}, i = ${pctS(y/2,3)}: P = (${money(F*c/2)} / ${+(y/2).toFixed(6)}) &times; (1 &minus; 1/(1 + ${+(y/2).toFixed(6)})<sup>${2*T}</sup>) + ${money(F)}/(1 + ${+(y/2).toFixed(6)})<sup>${2*T}</sup> = ${money(Pz)}`),
+        `Change = (new price &minus; old price) / old price = (${money(P1)} &minus; ${money(P0)}) / ${money(P0)} = ${pctS(correct,3)}`,
         `The longer the maturity, the harder the same 100 basis points bites &mdash; which is the idea duration will make precise.`
       ]};
   }},
@@ -813,8 +891,13 @@ const TEMPLATES = [
     /* floored so that squaring-versus-doubling and the wrong-base slip stay
        distinguishable from the right answer */
     const semi=pick(range(.02,.04,.00025));
-    const P=cash/(1+semi);
-    const correct=2*semi;
+    /* The stem prints the price to the cent and the steps print the six-month return to four
+       decimals of a percent, so the key is built from those printed figures: from the
+       unrounded price, "$1,010.00 / $990.20 - 1 = 2.0000%" was a last digit out on 952 of
+       1,053 draws. The key moves by at most 0.03%, a fiftieth of the tolerance (22 Sep 2026). */
+    const P=Math.round(cash/(1+semi)*100)/100;
+    const rSemi=+(cash/P-1).toFixed(6);
+    const correct=2*rSemi;
     return {
       unit:"percent",
       tol:0.0015,
@@ -824,14 +907,15 @@ const TEMPLATES = [
       ask:"What is its yield, quoted per annum compounded semiannually?",
       correct,
       cands:[
-        {val:semi, msg:`That is the return over the six months. A Treasury yield is quoted <em>per annum compounded semiannually</em>, which means twice the semiannual rate &mdash; double it.`},
+        {val:rSemi, msg:`That is the return over the six months. A Treasury yield is quoted <em>per annum compounded semiannually</em>, which means twice the semiannual rate &mdash; double it.`},
         {val:(cash-P)/cash, msg:`You divided the gain by the amount you receive rather than by the amount you pay. A return is always measured against what you actually put in: ${money(P)}.`},
         {val:2*(cash-P)/cash, msg:`Doubling is right, but the base is wrong &mdash; the gain goes over the price paid, ${money(P)}, not over the ${money(cash)} you collect. That is the bank discount habit creeping in.`},
-        {val:Math.pow(1+semi,2)-1, msg:`That is the effective annual rate, compounding the six-month return twice. Treasury convention quotes an APR: two times the semiannual rate, not the compounded figure.`}
+        {val:Math.pow(1+rSemi,2)-1, msg:`That is the effective annual rate, compounding the six-month return twice. Treasury convention quotes an APR: two times the semiannual rate, not the compounded figure.`}
       ],
       steps:[
-        `Return over six months = ${money(cash)} / ${money(P)} &minus; 1 = ${pctS(semi,4)}`,
-        `Quote it per annum compounded semiannually: 2 &times; ${pctS(semi,4)} = ${pctS(correct,3)}`,
+        `The price is the final payment discounted half a year: ${money(P)} = ${money(cash)} / (1 + y/2)`,
+        `1 + y/2 = ${money(cash)} / ${money(P)} = ${(1+rSemi).toFixed(6)}`,
+        `y = 2 &times; ${rSemi.toFixed(6)} = ${pctS(correct,3)}`,
         `Notice the direction of travel &mdash; the price came first, and the yield was backed out of it.`
       ]};
   }},
@@ -865,8 +949,8 @@ const TEMPLATES = [
       ],
       steps:[
         `You bid ${pctS(myBid,3)}, below the stop-out of ${pctS(stop,3)}, so you win`,
-        `Everyone pays the price implied by the stop-out: ${money(F)} &times; (1 &minus; ${N}/360 &times; ${pctS(stop,3)})`,
-        `You pay ${money(correct)} for ${money(F)} of face value`,
+        `Everyone pays the price at the stop-out rate: P = F &times; (1 &minus; N/360 &times; d) = ${money(F)} &times; (1 &minus; ${N}/360 &times; ${+stop.toFixed(6)}) = ${money(correct)}`,
+        `So you pay ${money(correct)} for ${money(F)} of face value`,
         `Note what you asked for was ${money(F)} of <em>face</em> &mdash; not ${money(F)} of cash. The two differ by ${money(F-correct)}.`
       ]};
   }},
@@ -922,28 +1006,28 @@ const TEMPLATES = [
 
 /* ---------------------------------------- taxable equivalent yield (S1) */
 { id:"te1", topic:"instruments", name:"What a CD has to pay to match a Treasury", gen(){
-    const ty=pick(range(.025,.055,.00025));
+    const ty=pick(range(.025,.055,.0005));        // two decimals, 5 bp grid (was 2.5 bp; 22 Sep 2026)
     const st=pick(range(.05,.135,.0025));
     const correct=ty/(1-st);
     return {
       unit:"percent",
       tol:0.0015,
-      text:`A Treasury note yields <b>${pctS(ty,3)} p.a.</b> Its interest is exempt from state and local
+      text:`A Treasury note yields <b>${pctS(ty,2)} p.a., compounded semiannually</b>. Its interest is exempt from state and local
             tax. Your state income tax rate is <b>${pctS(st,2)}</b>, and a bank CD of the same maturity
             is fully taxable by the state. Federal tax applies to both and works out the same either
             way, so ignore it for this question.`,
-      ask:"What must the CD yield to leave you equally well off?",
+      ask:"What must the CD yield, on the same basis, to leave you equally well off?",
       correct,
       cands:[
         {val:ty, msg:`Matching the headline yield is not enough. The CD's interest is taxed by the state and the Treasury's is not, so an identical quote leaves you worse off after tax.`},
         {val:ty*(1-st), msg:`Wrong direction &mdash; that is the Treasury's yield reduced by the state tax it does not pay. The CD has to be <em>grossed up</em>, not shrunk.`},
-        {val:ty/(1-st)-ty, msg:`That is how much <em>extra</em> the CD has to pay, not the yield it has to pay. Add it back on to the Treasury's ${pctS(ty,3)} to get the level.`},
+        {val:ty/(1-st)-ty, msg:`That is how much <em>extra</em> the CD has to pay, not the yield it has to pay. Add it back on to the Treasury's ${pctS(ty,2)} to get the level.`},
         {val:ty*(1+st), msg:`You grossed up by multiplying by (1 + ${pctS(st,2)}). To undo a tax you divide by (1 &minus; the rate), not multiply by (1 + the rate) &mdash; the two are close for small rates but they are not the same.`}
       ],
       steps:[
         `Federal tax is being set aside here, so the state layer is the only difference`,
-        `The CD must clear the state tax and still leave ${pctS(ty,3)}: yield &times; (1 &minus; ${pctS(st,2)}) = ${pctS(ty,3)}`,
-        `Yield = ${pctS(ty,3)} / (1 &minus; ${st.toFixed(4)}) = ${pctS(correct,3)}`,
+        `The CD must clear the state tax and still leave ${pctS(ty,2)}: CD yield &times; (1 &minus; state tax rate) = Treasury yield`,
+        `CD yield = Treasury yield / (1 &minus; state tax rate) = ${pctS(ty,2)} / (1 &minus; ${pctS(st,2)}) = ${pctS(correct,3)}`,
         `The higher your state rate, the bigger the Treasury's hidden edge.`
       ]};
   }},
@@ -969,8 +1053,8 @@ const TEMPLATES = [
         {val:0.0309, msg:`That is the spread on its own. Add it to the federal funds midpoint.`}
       ],
       steps:[
-        `Midpoint of the target range = ${pctS(mid,3)}`,
-        `Prime &asymp; midpoint + 3.09 pp = ${pctS(correct,3)}`,
+        `Midpoint of the target range = (${pctS(lo,3)} + ${pctS(hi,3)}) / 2 = ${pctS(mid,3)}`,
+        `Prime &asymp; fed funds midpoint + average gap = ${pctS(mid,3)} + 3.09% = ${pctS(correct,3)}`,
         `A standard deviation of 9 basis points means this is barely an estimate &mdash; prime moves the day the Fed moves.`
       ]};
   }}
@@ -987,6 +1071,8 @@ const TEMPLATES = [
     const d=pick([17,31,44,47,58,73,96,119,142]).valueOf();
     const cpn=F*c/2;
     const correct=cpn*d/D;
+    /* The steps keep d/D as a fraction: the elapsed share printed to six decimals, times a
+       coupon of up to $40,000, moved the last cent on 534 draws (22 Sep 2026). */
     return {
       unit:"money", tol:0.002,
       text:`A <b>${money(F)}</b> face-value Treasury note pays ${art(c)} <b>${pctS(c)} p.a.</b> coupon,
@@ -1001,9 +1087,8 @@ const TEMPLATES = [
         {val:cpn*D/d, msg:`The fraction is upside down. Days elapsed goes on top: ${d}/${D}, not ${D}/${d}.`}
       ],
       steps:[
-        `Semiannual coupon = ${pctS(c)} &times; ${money(F)} / 2 = ${money(cpn)}`,
-        `Fraction of the period elapsed = ${d}/${D} = ${(d/D).toFixed(6)}`,
-        `Accrued = ${money(cpn)} &times; ${(d/D).toFixed(6)} = ${money(correct)}`,
+        `Semiannual coupon = coupon rate &times; face / 2 = ${pctS(c)} &times; ${money(F)} / 2 = ${money(cpn)}`,
+        `Accrued = semiannual coupon &times; days elapsed / days in the period = ${money(cpn)} &times; ${d}/${D} = ${money(correct)}`,
         `The buyer pays this on top of the quoted clean price &mdash; it is the seller's earned interest, not a capital gain.`
       ]};
   }},
@@ -1046,7 +1131,7 @@ const TEMPLATES = [
         `Non-competitive bids come off the top: $${size}m &minus; $${nonComp}m = $${size-nonComp}m to award competitively`,
         `Filling from the lowest yield up: ${ys.slice(0,marg).map((y,k)=>`${L(k)} takes $${qs[k]}m`).join(", ")||"nobody is ahead of them"}, leaving $${left}m`,
         `${L(marg)} asked for $${qs[marg]}m and receives $${left}m`,
-        `Fill = ${left} / ${qs[marg]} = ${pctS(correct,1)}. Everyone, non-competitive bidders included, is paid the stop-out of ${pctS(ys[marg],3)}.`
+        `Share filled = amount received / amount requested = $${left}m / $${qs[marg]}m = ${pctS(correct,1)}. Everyone, non-competitive bidders included, is paid the stop-out of ${pctS(ys[marg],3)}.`
       ]};
   }},
 
@@ -1064,7 +1149,11 @@ const TEMPLATES = [
     } while (Math.abs(ratio-1) < 0.03
              || Math.abs(ratio-(1+m1)) < 0.02*ratio
              || Math.abs(ratio-(1+m2)*(1+m3)) < 0.02*ratio);
-    const correct=P*ratio;
+    /* The steps print the ratio to six decimals and multiply the principal by it, so the key
+       uses that printed ratio: from the unrounded one, "$1,000.00 x 1.05472 = $1,054.73" was a
+       cent out on 1,475 draws. The two differ by at most 5 parts in 10 million (22 Sep 2026). */
+    const ratioP=+ratio.toFixed(6);
+    const correct=P*ratioP;
     const allUp=P*(1+m1)*(1-m2)*(1+m3);
     return {
       unit:"money", tol:0.002,
@@ -1081,8 +1170,8 @@ const TEMPLATES = [
       ],
       steps:[
         `Each year multiplies the principal by (1 + that year's CPI change)`,
-        `Ratio = ${(1+m1).toFixed(4)} &times; ${(1+m2).toFixed(4)} &times; ${(1+m3).toFixed(4)} = ${ratio.toFixed(5)}`,
-        `Adjusted principal = ${money(P)} &times; ${ratio.toFixed(5)} = ${money(correct)}`,
+        `Ratio = (1 + year 1) &times; (1 + year 2) &times; (1 + year 3) = ${(1+m1).toFixed(4)} &times; ${(1+m2).toFixed(4)} &times; ${(1+m3).toFixed(4)} = ${ratioP.toFixed(6)}`,
+        `Adjusted principal = original principal &times; ratio = ${money(P)} &times; ${ratioP.toFixed(6)} = ${money(correct)}`,
         `The adjustments compound; they do not add. And a fall in the CPI genuinely reduces the principal along the way.`
       ]};
   }},
@@ -1207,7 +1296,12 @@ const CHOICE_TEMPLATES = [
     const fault = pick(["daycount","divide","annual"]);
     let horizon = N/360, disc, price, s;
     if (fault==="daycount") horizon = N/365;
-    disc = (fault==="annual") ? d : horizon*d;
+    /* Each step works from the figures printed in the step before it -- the horizon to six
+       decimals, the discount to six -- so only the planted step is wrong. From the unrounded
+       horizon, "0.326027 x 5.500% = 1.7932%" was itself a slip, and a careful student could
+       point at step 2 instead (22 Sep 2026). */
+    horizon = +horizon.toFixed(6);
+    disc = (fault==="annual") ? d : +(horizon*d).toFixed(6);
     price = (fault==="divide") ? F/(1+disc) : F*(1-disc);
     s = [
       `<b>Step 1.</b> Horizon adjustment = ${N} / ${fault==="daycount"?365:360} = ${horizon.toFixed(6)}`,
@@ -1242,7 +1336,7 @@ const CHOICE_TEMPLATES = [
       steps:[
         `P = F &times; (1 &minus; (N/360) &times; d)`,
         `Actual/360 for the day count, the annual rate pro-rated, and multiplication rather than division.`,
-        `P = ${money(F)} &times; (1 &minus; ${((N/360)*d).toFixed(6)}) = ${money(F*(1-(N/360)*d))}`
+        `P = ${money(F)} &times; (1 &minus; (${N}/360) &times; ${pctS(d,3)}) = ${money(F*(1-(N/360)*d))}`
       ]};
   }},
 
@@ -1331,7 +1425,7 @@ const CHOICE_TEMPLATES = [
       ask:"Which step introduces the mistake?",
       options: s.map((html,k)=>({html, correct:k===at, msg: k===at ? why : fine[k]})),
       steps:[
-        `Adjusted principal = original &times; index ratio = ${money(adj)}`,
+        `Adjusted principal = original &times; index ratio = ${money(F)} &times; ${ratio.toFixed(5)} = ${money(adj)}`,
         `The coupon rate is fixed; it is applied to the adjusted principal`,
         `Coupon = (${pctS(c,3)} / 2) &times; ${money(adj)} = ${money(adj*c/2)}`
       ]};
@@ -1366,15 +1460,17 @@ const CHOICE_TEMPLATES = [
 
 { id:"k3", topic:"concept", also:["bill","convention"], name:"Why the discount rate understates the return", gen(){
     const d=pick([.03,.04,.045,.05,.055,.06]), N=pick([90,91,182]), F=100000;
-    const P=F*(1-(N/360)*d), cey=(F/P-1)*(365/N);
+    /* the price as printed, to the cent, so the return and its annualised figure reproduce from
+       the page (29 Sep 2026); the stem's yield is built from the same figure */
+    const P=Math.round(F*(1-(N/360)*d)*100)/100, cey=(+(F/P-1).toFixed(8))*(365/N);
     return {
       mode:"choice",
       text:`A ${N}-day T-bill is quoted at a <b>discount rate of ${pctS(d,1)} p.a.</b> Held to maturity it
-            actually delivers <b>${pctS(cey,3)} p.a.</b> &mdash; more than the quote.`,
+            actually delivers <b>${pctS(cey,2)} p.a.</b> &mdash; more than the quote.`,
       ask:"Which pair of reasons explains the gap?",
       options: shuffle([
         {html:`The discount is measured against face value rather than the price paid, and annualised over 360 days rather than 365`, correct:true,
-         msg:`Both push the quoted number below the true return. Measuring the gain against the larger figure (face) understates it, and stretching it over a 360-day year understates the annualisation. Correct for both and ${pctS(d,1)} becomes ${pctS(cey,3)}.`},
+         msg:`Both push the quoted number below the true return. Measuring the gain against the larger figure (face) understates it, and stretching it over a 360-day year understates the annualisation. Correct for both and ${pctS(d,1)} becomes ${pctS(cey,2)}.`},
         {html:`The bill pays no coupons, and coupons are what generate return`, correct:false,
          msg:`A bill's return comes entirely from buying below face and being repaid at face. The absence of coupons is how the instrument is built, not a shortfall.`},
         {html:`Inflation erodes the face value between purchase and maturity`, correct:false,
@@ -1384,7 +1480,7 @@ const CHOICE_TEMPLATES = [
       ]),
       steps:[
         `Price = ${money(F)} &times; (1 &minus; ${N}/360 &times; ${pctS(d,1)}) = ${money(P)}`,
-        `Return over ${N} days = ${money(F)}/${money(P)} &minus; 1, annualised on 365 = ${pctS(cey,3)}`,
+        `Return over ${N} days = F/P &minus; 1 = ${money(F)} / ${money(P)} &minus; 1 = ${pctS(F/P-1,6)}; annualised on 365: ${pctS(F/P-1,6)} &times; 365/${N} = ${pctS(cey,2)}`,
         `Gain over price beats gain over face; 365 beats 360. Both run the same way.`
       ]};
   }},
@@ -1398,7 +1494,7 @@ const CHOICE_TEMPLATES = [
       ask:`Under what condition is ${y}% actually the return you earn?`,
       options: shuffle([
         {html:`Only if every coupon can be reinvested at ${y}% until maturity`, correct:true,
-         msg:`The yield is defined as the single rate that makes the discounted cash flows equal the price &mdash; which quietly assumes each coupon is reinvested at that same rate. Nobody knows in advance what rates coupons will meet, so the realised return generally differs. Holding to maturity removes the price risk, not the reinvestment risk.`},
+         msg:`The yield is the single rate that makes the discounted cash flows equal the price; that is a fact about today's price and assumes nothing. It equals your realised return only if each coupon is reinvested at that same rate. Nobody knows in advance what rates coupons will meet, so the realised return generally differs. Holding to maturity removes the price risk, not the reinvestment risk.`},
         {html:`Always &mdash; holding to maturity guarantees the quoted yield`, correct:false,
          msg:`Holding to maturity fixes the final payment at face value, which removes uncertainty about the <em>price</em>. It says nothing about the rate at which the coupons along the way can be reinvested.`},
         {html:`Only if interest rates rise after you buy`, correct:false,
@@ -1408,7 +1504,7 @@ const CHOICE_TEMPLATES = [
       ]),
       steps:[
         `A yield is backed out of the price: it is the rate that makes the discounted cash flows add to what the bond costs.`,
-        `That definition assumes coupons are reinvested at the yield itself.`,
+        `The yield is your realised return only if every coupon is reinvested at the yield itself.`,
         `A zero-coupon bond held to maturity is the clean exception &mdash; no coupons to reinvest, and the final price is known.`
       ]};
   }},
@@ -1420,8 +1516,8 @@ const CHOICE_TEMPLATES = [
     return {
       mode:"choice",
       text:`The same <b>${N}-day</b> T-bill can be described three ways on the same day: a <b>discount
-            rate</b> of ${pctS(d,3)} p.a., a <b>coupon equivalent yield</b> of ${pctS(cey,3)} p.a., and a
-            <b>semiannually compounded APR</b> of ${pctS(bey,3)} p.a. &mdash; three ways of
+            rate</b> of ${pctS(d,2)} p.a., a <b>coupon equivalent yield</b> of ${pctS(cey,2)} p.a., and a
+            <b>semiannually compounded APR</b> of ${pctS(bey,2)} p.a. &mdash; three ways of
             annualising the same ${N}-day return.`,
       ask:"What accounts for the three different figures?",
       options: shuffle([
@@ -1435,9 +1531,9 @@ const CHOICE_TEMPLATES = [
          msg:`All three are correct and each has its use: the first is how the auction quotes it, the second is what the Treasury publishes alongside, the third is what lets you compare it against a note.`}
       ]),
       steps:[
-        `Discount rate ${pctS(d,3)}: gain over <em>face</em>, actual/360, no compounding.`,
-        `Coupon equivalent ${pctS(cey,3)}: gain over <em>price</em>, actual/365, no compounding.`,
-        `Semiannual APR ${pctS(bey,3)}: the same return on the footing a note's yield runs on.`
+        `Discount rate ${pctS(d,2)}: gain over <em>face</em>, actual/360, no compounding.`,
+        `Coupon equivalent ${pctS(cey,2)}: gain over <em>price</em>, actual/365, no compounding.`,
+        `Semiannual APR ${pctS(bey,2)}: the same return on the footing a note's yield runs on.`
       ]};
   }},
 
@@ -2281,7 +2377,7 @@ const CHOICE_TEMPLATES = [
       ask:"Which step introduces the mistake?",
       options: s.map((html,k)=>({html, correct:k===at, msg: k===at ? why : fine[k]})),
       steps:[
-        `Breakeven = nominal yield &minus; TIPS yield = ${pctS(nom-real,2)}`,
+        `Breakeven = nominal yield &minus; TIPS yield = ${pctS(nom,2)} &minus; ${pctS(real,2)} = ${pctS(nom-real,2)}`,
         `Above it, TIPS wins; below it, the nominal bond wins.`,
         `And it is not a pure forecast &mdash; a risk premium lifts it, TIPS illiquidity lowers it.`
       ]};
@@ -2289,12 +2385,17 @@ const CHOICE_TEMPLATES = [
 
 { id:"e5", topic:"error", also:["convention","bill"], name:"Find the mistake — the bond equivalent chain", gen(){
     const F=100000, N=91, d=pick(range(.035,.06,.0025));
-    const P=F*(1-(N/360)*d);
+    const P=Math.round(F*(1-(N/360)*d)*100)/100;        // the price as the stem prints it
     const fault=pick(["base","daycount","half","double"]);
-    const rN = (fault==="base") ? (F-P)/F : F/P-1;
+    /* Every step works from the figures printed in the step above it -- the price to the cent,
+       each return to four decimals of a percent -- so only the planted step is wrong and its
+       own arithmetic is right on its wrong premise. From unrounded intermediates,
+       "0.9570% x 365/91 = 3.838%" and the compounding line were themselves a last digit out
+       on 16 of 44 draws, and a careful student could point at those steps (22 Sep 2026). */
+    const rN  = +((fault==="base") ? (F-P)/F : F/P-1).toFixed(6);
     const days = (fault==="half") ? 180 : 183;
     const ann  = (fault==="daycount") ? rN*360/N : rN*365/N;
-    const semi = Math.pow(1+rN, days/N)-1;
+    const semi = +(Math.pow(1+rN, days/N)-1).toFixed(6);
     const apr  = (fault==="double") ? semi : 2*semi;
     const s=[
       fault==="base"
@@ -2329,9 +2430,10 @@ const CHOICE_TEMPLATES = [
       ask:"Which step introduces the mistake?",
       options: s.map((html,k)=>({html, correct:k===at, msg: k===at ? why : fine[k]})),
       steps:[
-        `Gain over the price paid, annualised on 365, compounded to 183 days, then doubled.`,
-        `Each step is a convention choice, and each has a wrong version that looks reasonable.`,
-        `Done correctly: ${pctS(2*(Math.pow(1+(F/P-1),183/N)-1),3)} on a semiannual footing.`
+        `Done correctly: return over ${N} days = F/P &minus; 1 = ${money(F)} / ${money(P)} &minus; 1 = ${pctS(+(F/P-1).toFixed(6),4)}`,
+        `Half a year is 183 days, so $1 grows to (1 + ${(F/P-1).toFixed(6)})<sup>183/${N}</sup> = ${(Math.pow(1+ +(F/P-1).toFixed(6),183/N)).toFixed(6)} over it; the 91-day return is compounded directly (the &times;365/${N} figure plays no part)`,
+        `1 + y/2 = ${(Math.pow(1+ +(F/P-1).toFixed(6),183/N)).toFixed(6)}, so y = 2 &times; ${(Math.pow(1+ +(F/P-1).toFixed(6),183/N)-1).toFixed(6)} = ${pctS(2*(Math.pow(1+ +(F/P-1).toFixed(6),183/N)-1),3)} on a semiannual footing`,
+        `Each step is a convention choice, and each has a wrong version that looks reasonable.`
       ]};
   }},
 
@@ -2433,7 +2535,7 @@ const CHOICE_TEMPLATES = [
       text:`Two Treasury notes have nearly identical remaining maturities and cash flows. The
             <b>on-the-run</b> issue yields <b>4.00% p.a.</b> with a bid-ask spread of half a thirty-second.
             The <b>off-the-run</b> issue yields <b>4.07% p.a.</b> with a spread of two and a half
-            thirty-seconds. The client is <b>${client.who}</b>.`,
+            thirty-seconds. Both yields are compounded semiannually. The client is <b>${client.who}</b>.`,
       ask:"Which should they buy?",
       options: shuffle([
         {html:`The on-the-run issue, accepting the lower yield for the tighter spread`, correct:onW,
@@ -2499,17 +2601,21 @@ const CHOICE_TEMPLATES = [
     const frac=(fault==="denominator") ? n/16 : n/32;
     const per=(fault==="subtract") ? P-frac : P+frac;
     const total=(fault==="scale") ? face*per : face*per/100;
+    /* A price per $100 is printed exactly ($101.375), not to the cent: $101.38 made step 4's
+       own arithmetic ($101.38 x 10,000 = $1,013,750.00) look wrong, so a careful student could
+       point at a step other than the planted one (22 Sep 2026). */
+    const px = v => "$" + v.toFixed(Math.round(v*1000)%10 ? 3 : 2);
     const s=[
       `<b>Step 1.</b> ${q} means ${P} whole points plus ${n} thirty-seconds of a point`,
       fault==="denominator"
         ? `<b>Step 2.</b> ${n}/16 = ${frac.toFixed(5)}`
         : `<b>Step 2.</b> ${n}/32 = ${frac.toFixed(5)}`,
       fault==="subtract"
-        ? `<b>Step 3.</b> Price per $100 = ${P} &minus; ${frac.toFixed(5)} = ${money(per)}`
-        : `<b>Step 3.</b> Price per $100 = ${P} + ${frac.toFixed(5)} = ${money(per)}`,
+        ? `<b>Step 3.</b> Price per $100 = ${P} &minus; ${frac.toFixed(5)} = ${px(per)}`
+        : `<b>Step 3.</b> Price per $100 = ${P} + ${frac.toFixed(5)} = ${px(per)}`,
       fault==="scale"
-        ? `<b>Step 4.</b> On ${money(face)} of face: ${money(face)} &times; ${money(per)} = ${money(total)}`
-        : `<b>Step 4.</b> On ${money(face)} of face: ${money(face)} &times; ${money(per)} &divide; 100 = ${money(total)}`
+        ? `<b>Step 4.</b> On ${money(face)} of face: ${money(face)} &times; ${px(per)} = ${money(total)}`
+        : `<b>Step 4.</b> On ${money(face)} of face: ${money(face)} &times; ${px(per)} &divide; 100 = ${money(total)}`
     ];
     const fine=[
       `Step 1 is fine &mdash; that is exactly what the dash notation means.`,
@@ -2533,8 +2639,8 @@ const CHOICE_TEMPLATES = [
       options: s.map((html,k)=>({html, correct:k===at, msg: k===at ? why : fine[k]})),
       steps:[
         `${n}/32 = ${(n/32).toFixed(5)}`,
-        `Price per $100 = ${P} + ${(n/32).toFixed(5)} = ${money(P+n/32)}`,
-        `On ${money(face)} of face: ${money(P+n/32)} &times; ${(face/100).toLocaleString("en-US")} = ${money((P+n/32)*face/100)}`
+        `Price per $100 = whole points + n/32 = ${P} + ${(n/32).toFixed(5)} = ${px(P+n/32)}`,
+        `On ${money(face)} of face: price per $100 &times; face / 100 = ${px(P+n/32)} &times; ${(face/100).toLocaleString("en-US")} = ${money((P+n/32)*face/100)}`
       ]};
   }},
 

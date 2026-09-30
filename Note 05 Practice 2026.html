@@ -203,12 +203,20 @@ function usable(correct, cands, sep){
 const billPrice = (F,days,disc) => F*(1 - days/360*disc);
 const repoOwed  = (P,days,rate) => P*(1 + days/360*rate);
 const daysList  = [1,7,14,30,60,90];
+const smoney = v => (v < 0 ? "&minus;" : "") + money(Math.abs(v));   // −$4.39, not $-4.39 (22 Sep 2026)
+const cents  = v => +v.toFixed(2);   // a dollar figure as printed, so a step's arithmetic reproduces from the page
 
 const TEMPLATES = [{ id:"p1", topic:"mechanics", name:"Repo interest over the term", gen(){
-    const P = pick([1000,10000,100000,1000000,5000000]);
-    const days = pick(daysList);
-    const r = pick(range(.02,.075,.00125));
-    const correct = P*(days/360)*r;
+    let P, days, r, correct;
+    /* Re-drawn when the interest is under $5 (gridall 05, 22 Sep 2026): $1,000 for 1 day at
+       2% owes 6 cents, and the answer to the cent missed the 0.25% match on 92 draws. From
+       $5 up, rounding to the cent moves the answer by at most 0.1%.                       */
+    do {
+      P = pick([1000,10000,100000,1000000,5000000]);
+      days = pick(daysList);
+      r = pick(range(.02,.075,.00125));
+      correct = P*(days/360)*r;
+    } while (correct < 5);
     return {
       unit:"money",
       text:`You repo out a security and receive <b>${money(P)}</b> in cash for
@@ -216,15 +224,15 @@ const TEMPLATES = [{ id:"p1", topic:"mechanics", name:"Repo interest over the te
       ask:"How much interest do you owe when you buy the security back?",
       correct,
       cands:[
-        {val:P*r, msg:`That is a full year of interest. The loan runs ${days} days, so scale by ${days}/360.`},
+        {val:P*r, msg:`That is a full year of interest. The loan runs ${days} day${days===1?"":"s"}, so scale by ${days}/360.`},
         {val:P*(days/365)*r, msg:`You used a 365-day year. The money market counts actual days over a <b>360</b>-day year, so the fraction is ${days}/360.`},
         {val:P*(1+days/360*r), msg:`That is the total repurchase amount &mdash; principal plus interest. The question asks for the interest alone.`},
         {val:P*(days/360)*r/2, msg:`You halved it. There is no semiannual convention here; repo interest is simple, actual/360.`}
       ],
+      /* One line, formula first (22 Sep 2026). The old steps multiplied by days/360 cut to six
+         decimals, which on $5m for 7 days gave $1,944.40 against the printed $1,944.44.    */
       steps:[
-        `Day-count fraction = ${days}/360 = ${(days/360).toFixed(6)}`,
-        `Interest = ${money(P)} &times; ${(days/360).toFixed(6)} &times; ${pctS(r,3)}`,
-        `= ${money(correct)}`
+        `Interest = cash &times; days/360 &times; repo rate = ${money(P)} &times; ${days}/360 &times; ${pctS(r,3)} = ${money(correct)}`
       ]};
   }},
 
@@ -232,23 +240,30 @@ const TEMPLATES = [{ id:"p1", topic:"mechanics", name:"Repo interest over the te
     const P = pick([500000,1000000,25000000,98750000]);
     const days = pick(daysList);
     const r = pick(range(.02,.07,.00125));
-    const correct = repoOwed(P,days,r);
+    // Principal plus the interest as printed, to the cent: $500,000 + $546.88 printed
+    // $500,546.87 when the key was the unrounded sum (gridall 05, 22 Sep 2026).
+    const interest = cents(P*(days/360)*r);
+    const correct = P + interest;
     return {
       unit:"money",
+      /* Tightened 22 Sep 2026 (gridall 05: 856 of 984 draws scored a slip). The interest is
+         as little as 1/360 x 2% = 0.0056% of the principal, so "the cash alone" and "subtracted
+         the interest" sat inside the default 0.25%. The slips are at least 0.0056% from the
+         key and from each other; an answer to the cent is within 0.000001%.            */
+      tol:0.00001, sep:0.00005,
       text:`You borrow <b>${money(P)}</b> in a <b>${days}-day</b> repo at
             <b>${pctS(r,3)} p.a.</b>`,
       ask:"What do you pay to repurchase the security at the end?",
       correct,
       cands:[
-        {val:P, msg:`That is the cash you received. You also owe interest for the ${days} days.`},
+        {val:P, msg:`That is the cash you received. You also owe interest for the ${days} day${days===1?"":"s"}.`},
         {val:P*(days/360)*r, msg:`That is the interest alone. The repurchase price is principal <em>plus</em> interest.`},
-        {val:P*(1+r), msg:`That is a full year of interest. The term is ${days} days.`},
+        {val:P*(1+r), msg:`That is a full year of interest. The term is ${days} day${days===1?"":"s"}.`},
         {val:P*(1-days/360*r), msg:`You subtracted the interest. You are the borrower here &mdash; you pay back more than you received, not less.`}
       ],
       steps:[
-        `Interest = ${money(P)} &times; ${days}/360 &times; ${pctS(r,3)} = ${money(P*(days/360)*r)}`,
-        `Repurchase price = ${money(P)} + ${money(P*(days/360)*r)}`,
-        `= ${money(correct)}`
+        `Interest = cash &times; days/360 &times; repo rate = ${money(P)} &times; ${days}/360 &times; ${pctS(r,3)} = ${money(interest)}`,
+        `Repurchase price = cash + interest = ${money(P)} + ${money(interest)} = ${money(correct)}`
       ]};
   }},
 
@@ -280,7 +295,10 @@ const TEMPLATES = [{ id:"p1", topic:"mechanics", name:"Repo interest over the te
       ]};
   }},
 
-{ id:"h2", topic:"haircut", also:["leverage"], name:"Leverage from a haircut", gen(){
+/* Leverage framing removed 29 Sep 2026 (Anh): the Note 05 paragraph on leverage = 1/haircut is
+   commented out of the notes, so the drill keeps only what the note says: the lender advances
+   (1 - haircut) of the collateral and you fund the haircut yourself. */
+{ id:"h2", topic:"haircut", name:"How large a position your capital supports", gen(){
     const h = pick([.01,.02,.025,.03,.04,.05,.08,.10]);
     const cap = pick([1000000,2000000,5000000,10000000]);
     const correct = cap/h;
@@ -297,9 +315,9 @@ const TEMPLATES = [{ id:"p1", topic:"mechanics", name:"Repo interest over the te
         {val:cap, msg:`That is your capital alone, with no financing at all. The repo lends you the other ${pctS(1-h,1)} of the position.`}
       ],
       steps:[
-        `On a position of size X the lender advances ${pctS(1-h,1)} and you must fund ${pctS(h,1)}`,
-        `Your capital is the haircut: X &times; ${pctS(h,1)} = ${money(cap)}`,
-        `X = ${money(cap)} / ${h} = ${money(correct)} &mdash; that is ${(1/h).toFixed(0)} times leverage.`
+        `On a position of size X the lender advances ${pctS(1-h,1)} and you must fund the ${pctS(h,1)} haircut yourself`,
+        `Your capital covers the haircut: X &times; ${pctS(h,1)} = ${money(cap)}`,
+        `X = ${money(cap)} / ${+h.toFixed(4)} = ${money(correct)}`
       ]};
   }},
 
@@ -314,41 +332,56 @@ const TEMPLATES = [{ id:"p1", topic:"mechanics", name:"Repo interest over the te
     const owed = repoOwed(cost,hold,repo);
     const d1 = d0 - pick(range(.004,.02,.001));
     const sale = billPrice(F,days0-hold,d1);
-    const correct = sale - owed;
+    /* The profit is the difference of the two figures as printed, to the cent (gridall 05,
+       22 Sep 2026: on 2,491 draws the last step printed ".13" where its own figures make
+       ".12"). On 131 draws the repo interest outruns the bill's gain and the profit is
+       negative; that is real economics, so those draws stay and the text says so.      */
+    const correct = cents(sale) - cents(owed);
     return {
       unit:"money",
       text:`You buy a <b>${days0}-day</b> T-bill, face <b>${money(F)}</b>, at a discount rate of
             <b>${pctS(d0,3)} p.a.</b>, financing the whole purchase with a <b>${hold}-day</b> repo at
             <b>${pctS(repo,3)} p.a.</b> After ${hold} days the bill is quoted at
             <b>${pctS(d1,3)} p.a.</b> and you sell it.`,
-      ask:"What is your profit?",
+      ask:"What is your profit? (Negative if the trade loses money.)",
       correct,
       cands:[
         {val:sale-cost, msg:`You compared the two prices but never paid for the financing. The repo interest of ${money(owed-cost)} comes out of the gain.`},
         {val:owed-sale, msg:`Sign reversed. You receive the sale proceeds and pay off the repo, so the profit is proceeds minus what you owe.`},
-        {val:sale, msg:`That is the sale proceeds. Most of it repays the repo.`},
+        {val:sale, msg:`That is the sale proceeds. ${sale>owed ? "Most of it repays the repo." : "All of it goes to repay the repo, and it still falls short."}`},
         {val:sale-cost-cost*(hold/360)*repo*2, msg:`You charged the financing twice. The repo runs once, for ${hold} days.`}
       ],
       sep:0.02,
       steps:[
-        `Purchase price = ${money(F)} &times; (1 &minus; ${days0}/360 &times; ${pctS(d0,3)}) = ${money(cost)}`,
-        `Repo owed after ${hold} days = ${money(cost)} &times; (1 + ${hold}/360 &times; ${pctS(repo,3)}) = ${money(owed)}`,
-        `Bill now has ${days0-hold} days left: sale price = ${money(F)} &times; (1 &minus; ${days0-hold}/360 &times; ${pctS(d1,3)}) = ${money(sale)}`,
-        `Profit = ${money(sale)} &minus; ${money(owed)} = ${money(correct)}`
+        `Purchase price = face &times; (1 &minus; days/360 &times; discount rate) = ${money(F)} &times; (1 &minus; ${days0}/360 &times; ${pctS(d0,3)}) = ${money(cost)}`,
+        `Repo owed = purchase price &times; (1 + days/360 &times; repo rate) = ${money(cost)} &times; (1 + ${hold}/360 &times; ${pctS(repo,3)}) = ${money(owed)}`,
+        `The bill now has ${days0-hold} days left: sale price = ${money(F)} &times; (1 &minus; ${days0-hold}/360 &times; ${pctS(d1,3)}) = ${money(sale)}`,
+        `Profit = sale price &minus; repo owed = ${money(sale)} &minus; ${money(owed)} = ${smoney(correct)}` +
+          (correct < 0 ? ` &mdash; the bill's gain did not cover the repo interest.` : ``)
       ]};
   }},
 
 { id:"f2", topic:"finance", name:"Financing a purchase: the trade goes wrong", gen(){
     const F = 100000000;
-    const d0 = pick(range(.035,.055,.0025));
     const days0 = 90;
-    const cost = billPrice(F,days0,d0);
-    const hold = pick([30,45,60]);
-    const repo = pick(range(.03,.05,.00125));
-    const owed = repoOwed(cost,hold,repo);
-    const d1 = d0 + pick(range(.015,.04,.0025));
-    const sale = billPrice(F,days0-hold,d1);
-    const correct = owed - sale;
+    let d0, cost, hold, repo, owed, d1, sale;
+    /* Re-drawn unless the bill really loses value (gridall 05, 22 Sep 2026). A bill's price
+       climbs toward face as it runs down, and on 3,893 draws that pull beat the rise in the
+       discount rate: the bill gained, so "rates move against you" and "the bill also lost
+       value" were false, and 414 shortfalls were negative. The fall must also be at least
+       1% of the shortfall, or "the repo interest alone" sits on the key (136 draws scored).
+       Holding periods of 45 and 60 days gave way to 15: with 45 or 30 days left to run, the
+       bill lost value on only 51 of 3,366 draws.                                        */
+    do {
+      d0 = pick(range(.035,.055,.0025));
+      cost = billPrice(F,days0,d0);
+      hold = pick([15,30]);
+      repo = pick(range(.03,.05,.00125));
+      owed = repoOwed(cost,hold,repo);
+      d1 = d0 + pick(range(.015,.04,.0025));
+      sale = billPrice(F,days0-hold,d1);
+    } while (cost - sale < 0.01*(owed - sale));
+    const correct = cents(owed) - cents(sale);     // the two figures as printed, to the cent
     return {
       unit:"money",
       text:`A <b>${days0}-day</b> bill, face <b>${money(F)}</b>, is bought at
@@ -365,23 +398,32 @@ const TEMPLATES = [{ id:"p1", topic:"mechanics", name:"Repo interest over the te
       ],
       sep:0.02,
       steps:[
-        `Purchase price = ${money(cost)}; repo owed after ${hold} days = ${money(owed)}`,
-        `Sale price with ${days0-hold} days left = ${money(sale)}`,
-        `Shortfall = ${money(owed)} &minus; ${money(sale)} = ${money(correct)} &mdash; leverage cuts both ways.`
+        `Purchase price = face &times; (1 &minus; days/360 &times; discount rate) = ${money(F)} &times; (1 &minus; ${days0}/360 &times; ${pctS(d0,3)}) = ${money(cost)}`,
+        `Repo owed = purchase price &times; (1 + days/360 &times; repo rate) = ${money(cost)} &times; (1 + ${hold}/360 &times; ${pctS(repo,3)}) = ${money(owed)}`,
+        `The bill now has ${days0-hold} days left: sale price = ${money(F)} &times; (1 &minus; ${days0-hold}/360 &times; ${pctS(d1,3)}) = ${money(sale)}`,
+        `Shortfall = repo owed &minus; sale price = ${money(owed)} &minus; ${money(sale)} = ${money(correct)} &mdash; leverage cuts both ways.`
       ]};
   }},
 
 { id:"s1", topic:"short", name:"Shorting through a reverse repo", gen(){
     const F = 200000000;
-    const d0 = pick(range(.04,.08,.0025));
     const days0 = 60;
-    const proceeds = billPrice(F,days0,d0);
-    const hold = pick([7,14,21]);
-    const repo = pick(range(.03,.06,.00125));
-    const owed = repoOwed(proceeds,hold,repo);
-    const d1 = d0 + pick(range(.02,.045,.0025));
-    const buyback = billPrice(F,days0-hold,d1);
-    const correct = owed - buyback;
+    let d0, proceeds, hold, repo, owed, d1, buyback;
+    /* Re-drawn unless the bill gets cheaper (gridall 05, 22 Sep 2026). A bill's price climbs
+       toward face as it runs down, and on 2,550 draws that pull beat the rise in the discount
+       rate: "rates rose, so the bill got cheaper" was false, and 58 profits were negative.
+       The fall must also be at least 1% of the profit, or "the interest on the cash alone"
+       sits on the key (25 draws scored).                                                */
+    do {
+      d0 = pick(range(.04,.08,.0025));
+      proceeds = cents(billPrice(F,days0,d0));   // cash, to the cent: step 2 grows the printed figure
+      hold = pick([7,14,21]);
+      repo = pick(range(.03,.06,.00125));
+      owed = repoOwed(proceeds,hold,repo);
+      d1 = d0 + pick(range(.02,.045,.0025));
+      buyback = billPrice(F,days0-hold,d1);
+    } while (proceeds - buyback < 0.01*(owed - buyback));
+    const correct = cents(owed) - cents(buyback);  // the two figures as printed, to the cent
     return {
       unit:"money",
       text:`You borrow a <b>${days0}-day</b> bill, face <b>${money(F)}</b>, through a <b>reverse
@@ -400,16 +442,20 @@ const TEMPLATES = [{ id:"p1", topic:"mechanics", name:"Repo interest over the te
       ],
       sep:0.02,
       steps:[
-        `Short sale proceeds = ${money(F)} &times; (1 &minus; ${days0}/360 &times; ${pctS(d0,3)}) = ${money(proceeds)}`,
-        `Cash lent for ${hold} days grows to ${money(owed)}`,
-        `Buy back with ${days0-hold} days left = ${money(buyback)}`,
-        `Profit = ${money(owed)} &minus; ${money(buyback)} = ${money(correct)}`
+        `Short sale proceeds = face &times; (1 &minus; days/360 &times; discount rate) = ${money(F)} &times; (1 &minus; ${days0}/360 &times; ${pctS(d0,3)}) = ${money(proceeds)}`,
+        `Cash lent grows to proceeds &times; (1 + days/360 &times; repo rate) = ${money(proceeds)} &times; (1 + ${hold}/360 &times; ${pctS(repo,3)}) = ${money(owed)}`,
+        `The bill now has ${days0-hold} days left: buy-back price = ${money(F)} &times; (1 &minus; ${days0-hold}/360 &times; ${pctS(d1,3)}) = ${money(buyback)}`,
+        `Profit = cash at the end &minus; buy-back price = ${money(owed)} &minus; ${money(buyback)} = ${money(correct)}`
       ]};
   }},
 
 { id:"g1", topic:"gc", name:"The specialness of a special", gen(){
     const gc = pick(range(.035,.06,.00125));
-    const sp = gc - pick(range(.004,.03,.00125));
+    /* The special rate is drawn on a 0.05% grid, 0.4% to 3% below GC, so it prints as a round
+       rate (gridall 05, 22 Sep 2026: GC less eighths printed 2.975% on 2,640 draws). It stays
+       0.05% or more off GC/2, where the interest on the special would equal the saving.   */
+    const sp = pick(range(.005,.056,.0005).filter(s =>
+      gc - s >= .004 - 1e-9 && gc - s <= .03 + 1e-9 && Math.abs(gc - 2*s) >= .0005 - 1e-9));
     const P = pick([50000000,100000000,250000000]);
     const days = pick([1,7,14,30]);
     const correct = P*(days/360)*(gc-sp);
@@ -423,7 +469,7 @@ const TEMPLATES = [{ id:"p1", topic:"mechanics", name:"Repo interest over the te
       cands:[
         {val:P*(days/360)*sp, msg:`That is the interest you actually pay on the special. The saving is the difference against the GC rate.`},
         {val:P*(days/360)*gc, msg:`That is what the financing would have cost at the GC rate. The saving is the difference.`},
-        {val:P*(gc-sp), msg:`That is a full year's saving. The repo runs ${days} days, so scale by ${days}/360.`},
+        {val:P*(gc-sp), msg:`That is a full year's saving. The repo runs ${days} day${days===1?"":"s"}, so scale by ${days}/360.`},
         {val:P*(days/365)*(gc-sp), msg:`Repo uses actual/360, not 365.`}
       ],
       steps:[
@@ -433,7 +479,7 @@ const TEMPLATES = [{ id:"p1", topic:"mechanics", name:"Repo interest over the te
       ]};
   }},
 
-{ id:"h4", topic:"haircut", also:["leverage"], name:"Capital behind a levered position", gen(){
+{ id:"h4", topic:"haircut", name:"Capital behind a repo-funded position", gen(){
     const V = pick([40000000,100000000,500000000,1000000000]);
     const h = pick([.01,.02,.03,.05]);
     const correct = V*h;
@@ -452,7 +498,7 @@ const TEMPLATES = [{ id:"p1", topic:"mechanics", name:"Repo interest over the te
       steps:[
         `Repo advances ${pctS(1-h,1)} of ${money(V)} = ${money(V*(1-h))}`,
         `You fund the remaining ${pctS(h,1)}: ${money(correct)}`,
-        `That is ${(1/h).toFixed(0)}&times; leverage &mdash; a ${pctS(h,1)} fall in the collateral wipes out your capital.`
+        `A ${pctS(h,1)} fall in the collateral's value would wipe out that capital.`
       ]};
   }},
 
@@ -462,11 +508,20 @@ const TEMPLATES = [{ id:"p1", topic:"mechanics", name:"Repo interest over the te
     const r = pick(range(.025,.07,.00125));
     const back = repoOwed(P,days,r);
     const correct = r;
+    const interest = cents(back) - P;                // as printed: the repaid sum is shown to the cent
+    const frac = +(interest/P).toFixed(8);
     return {
       unit:"percent",
+      /* Tightened 22 Sep 2026 (gridall 05: 222 of 555 draws scored a slip). Dividing the
+         interest by the repurchase amount is r/(1 + days/360 x r), as little as 0.049% below
+         the key (7 days at 2.5%), so it sat inside the default 0.25%. The rate is a whole
+         eighth, so the three decimals asked for give it exactly; the repaid sum's rounding to
+         the cent moves it by under 0.0001%. At three decimals that slip reads 2.499% against
+         2.500%, 0.04% off, so the match is 0.01%, and sep 0.04% keeps it diagnosable.     */
+      tol:0.0001, sep:0.0004,
       text:`A repo lends <b>${money(P)}</b> today against collateral, and
             <b>${money(back)}</b> is repaid <b>${days} days</b> later.`,
-      ask:"What is the repo rate, quoted the market's way?",
+      ask:"What is the repo rate, quoted the market's way? Give it in percent to three decimal places.",
       correct,
       cands:[
         {val:(back/P-1), msg:`That is the interest over the ${days} days, not an annual rate. Annualise it by dividing by ${days}/360.`},
@@ -475,9 +530,9 @@ const TEMPLATES = [{ id:"p1", topic:"mechanics", name:"Repo interest over the te
         {val:(back-P)/back*360/days, msg:`You divided the interest by the repurchase amount instead of by the principal actually lent.`}
       ],
       steps:[
-        `Interest = ${money(back)} &minus; ${money(P)} = ${money(back-P)}`,
-        `Interest as a fraction of principal = ${((back-P)/P).toFixed(8)}`,
-        `Annualise: &divide; (${days}/360) = ${pctS(correct,4)}`
+        `Amount repaid = amount lent &times; (1 + days/360 &times; repo rate): ${money(back)} = ${money(P)} &times; (1 + ${days}/360 &times; r)`,
+        `${days}/360 &times; r = ${money(back)} / ${money(P)} &minus; 1 = ${frac.toFixed(8)}`,
+        `r = ${frac.toFixed(8)} &times; 360/${days} = ${pctS(frac*360/days,3)}`
       ]};
   }},
 
@@ -495,7 +550,11 @@ const TEMPLATES = [{ id:"p1", topic:"mechanics", name:"Repo interest over the te
     const V0=pick([100,200,500]);
     const h=pick([.02,.03,.04,.05]);
     const loan=(1-h)*V0;
-    const liqFall=h+pick(range(.005,.03,.0025));
+    /* Re-drawn when the fall beyond the haircut equals the haircut (gridall 05, 22 Sep 2026:
+       on 6 draws the loss was the haircut itself, and "that is the haircut" scored).      */
+    let beyond;
+    do { beyond=pick(range(.005,.03,.0025)); } while (Math.abs(beyond-h)<1e-9);
+    const liqFall=h+beyond;
     const L=V0*(1-liqFall);
     const correct=loan-L;
     return {
@@ -519,36 +578,54 @@ const TEMPLATES = [{ id:"p1", topic:"mechanics", name:"Repo interest over the te
   }},
 
 { id:"be2", topic:"finance", also:["bill","reason"], name:"The break-even discount rate", gen(){
-    const F=pick([100,200,500]);                // $m face
-    const days0=pick([90,120,180]);
-    const hold=pick([30,45,60]);
-    const m=days0-hold;
-    const d0=pick(range(.03,.06,.0025));
-    // The cost is rounded because it is displayed. The repo obligation is NOT displayed
-    // -- the student works it out -- so there is only one route to it and nothing to round.
-    const cost=+(F*(1-days0/360*d0)).toFixed(3);
-    const repo=pick(range(.025,.05,.00125));
-    const R=cost*(1+hold/360*repo);
-    const correct=(1-R/F)*360/m;
-    return {
-      unit:"percent",
-      text:`You buy a <b>${days0}-day</b> T-bill, face <b>\$${F}m</b>, at a discount rate of
-            <b>${pctS(d0,3)} p.a.</b> &mdash; costing <b>\$${cost.toFixed(3)}m</b> &mdash; and finance the
-            whole thing with a <b>${hold}-day</b> repo at <b>${pctS(repo,3)} p.a.</b> When the repo
-            matures the bill will have <b>${m} days</b> left to run.`,
-      ask:"At what discount rate does the bill sell for exactly what you owe your repo counterparty?",
-      correct,
-      cands:[
+    const mm=v=>v.toFixed(4).replace(/0{1,2}$/,"");   // $m to the $100: $99.1875m, $99.25m
+    let F, days0, hold, m, d0, cost, repo, R, correct, cands;
+    /* Re-drawn (gridall 05, 22 Sep 2026) unless
+       - the bill's cost is exact to the $100, so the cost printed is the price its discount
+         rate gives. It used to be rounded to the $1,000 ("$99.188m" for $99.1875m), and a
+         student who priced the bill from its rate was marked wrong on 20 draws. A 120-day
+         bill is exact only at rates in multiples of 0.75%;
+       - the break-even rate is positive (15 draws were negative);
+       - every slip is at least 0.5%, twice the match tolerance, from the key. Dividing by
+         the price rather than face, and the purchase rate itself, scored on 225 draws.
+         sep 0.005 keeps every slip that is left diagnosable.
+       The repo obligation is not in the stem: the student works it out. The steps print it
+       to the $1 and the key is what that figure gives.                                   */
+    do {
+      F=pick([100,200,500]);                  // $m face
+      days0=pick([90,120,180]);
+      hold=pick([30,45,60]);
+      m=days0-hold;
+      d0=pick(range(.03,.06,.0025));
+      cost=F*(1-days0/360*d0);
+      repo=pick(range(.025,.05,.00125));
+      R=+(cost*(1+hold/360*repo)).toFixed(6);
+      correct=(1-R/F)*360/m;
+      cands=[
         {val:1-R/F, msg:`That is the discount as a fraction of face over the remaining ${m} days, not annualised. Multiply by 360/${m}.`},
         {val:(1-R/F)*360/days0, msg:`You annualised over the bill's <em>original</em> ${days0} days. At the point of sale it has only ${m} days left.`},
         {val:(F-R)/R*360/m, msg:`You divided the discount by the price rather than the face value. The bill discount convention takes it off face.`},
         {val:d0, msg:`That is the rate you bought at. Break-even is a different rate &mdash; it is the one that just covers your financing.`}
-      ],
+      ];
+    } while (Math.abs(cost - +cost.toFixed(4)) > 1e-9 || !(correct > 0) ||
+             cands.some(c => near(c.val, correct, 0.005)) ||
+             /* d on an exact tie at the fourth decimal of a percent rounds either way (29 Sep 2026) */
+             Math.abs((correct*1e6) % 1 - 0.5) < 1e-6);
+    return {
+      unit:"percent",
+      sep:0.005,
+      text:`You buy a <b>${days0}-day</b> T-bill, face <b>\$${F}m</b>, at a discount rate of
+            <b>${pctS(d0,3)} p.a.</b> &mdash; costing <b>\$${mm(cost)}m</b> &mdash; and finance the
+            whole thing with a <b>${hold}-day</b> repo at <b>${pctS(repo,3)} p.a.</b> When the repo
+            matures the bill will have <b>${m} days</b> left to run.`,
+      ask:"At what discount rate does the bill sell for exactly what you owe your repo counterparty?",
+      correct,
+      cands,
       steps:[
-        `The repo obligation is \$${cost.toFixed(3)}m &times; (1 + ${hold}/360 &times; ${pctS(repo,3)}) = \$${R.toFixed(4)}m`,
-        `You need a sale price of \$${R.toFixed(4)}m on \$${F}m of face, with ${m} days to run`,
-        `\$${R.toFixed(4)}m = \$${F}m &times; (1 &minus; ${m}/360 &times; d)`,
-        `d = (1 &minus; ${(R/F).toFixed(6)}) &times; 360/${m} = ${pctS(correct,4)}`,
+        `Repo owed = cost &times; (1 + days/360 &times; repo rate) = \$${mm(cost)}m &times; (1 + ${hold}/360 &times; ${pctS(repo,3)}) = \$${R.toFixed(6)}m`,
+        `Break even: sale price = repo owed, and with ${m} days to run the sale price = face &times; (1 &minus; days left/360 &times; d): \$${F}m &times; (1 &minus; ${m}/360 &times; d) = \$${R.toFixed(6)}m`,
+        `Divide by the face: 1 &minus; ${m}/360 &times; d = \$${R.toFixed(6)}m / \$${F}m = ${+(R/F).toFixed(10)}`,
+        `So ${m}/360 &times; d = 1 &minus; ${+(R/F).toFixed(10)} = ${+(1-R/F).toFixed(10)}, and d = ${+(1-R/F).toFixed(10)} &times; 360/${m} = ${pctS(correct,4)}`,
         `Sell below that rate and you profit; above it and the financing has eaten the trade.`
       ]};
   }},
@@ -577,16 +654,19 @@ const CHOICE_TEMPLATES = [
     const days = pick([14,30,60,90]);
     const r = pick(range(.03,.06,.005));
     const fault = pick(["year365","noFraction","subtract"]);
-    const frac = fault==="year365" ? days/365 : days/360;
+    /* Step 2 multiplies by the fraction days/den itself, not by its six-decimal rounding:
+       $1,000,000.00 x 0.038356 x 3.500% makes $1,342.46, while the step printed the exact
+       $1,342.47, so the planted fault was not the only wrong step (gridall 05, 22 Sep
+       2026). p1 and p2 print the day-count fraction the same way.                       */
+    const den = fault==="year365" ? 365 : 360;
+    const frac = days/den;
     const interest = fault==="noFraction" ? P*r : P*frac*r;
     const total = fault==="subtract" ? P-interest : P+interest;
     const s = [
-      fault==="year365"
-        ? `<b>Step 1.</b> Day-count fraction = ${days}/365 = ${(days/365).toFixed(6)}`
-        : `<b>Step 1.</b> Day-count fraction = ${days}/360 = ${(days/360).toFixed(6)}`,
+      `<b>Step 1.</b> Day-count fraction = ${days}/${den} = ${frac.toFixed(6)}`,
       fault==="noFraction"
         ? `<b>Step 2.</b> Interest = ${money(P)} &times; ${pctS(r,3)} = ${money(interest)}`
-        : `<b>Step 2.</b> Interest = ${money(P)} &times; ${frac.toFixed(6)} &times; ${pctS(r,3)} = ${money(interest)}`,
+        : `<b>Step 2.</b> Interest = ${money(P)} &times; ${days}/${den} &times; ${pctS(r,3)} = ${money(interest)}`,
       fault==="subtract"
         ? `<b>Step 3.</b> Repurchase price = ${money(P)} &minus; ${money(interest)} = ${money(total)}`
         : `<b>Step 3.</b> Repurchase price = ${money(P)} + ${money(interest)} = ${money(total)}`,
@@ -613,16 +693,16 @@ const CHOICE_TEMPLATES = [
       ask:"Which step introduces the mistake?",
       options: s.map((html,q)=>({html, correct:q===at, msg: q===at ? why : fine[q]})),
       steps:[
-        `Fraction = ${days}/360 = ${(days/360).toFixed(6)}`,
-        `Interest = ${money(P)} &times; ${(days/360).toFixed(6)} &times; ${pctS(r,3)} = ${money(P*(days/360)*r)}`,
-        `Repurchase price = ${money(P + P*(days/360)*r)}`
+        `Day-count fraction = days/360 = ${days}/360 = ${(days/360).toFixed(6)}`,
+        `Interest = cash &times; days/360 &times; repo rate = ${money(P)} &times; ${days}/360 &times; ${pctS(r,3)} = ${money(P*(days/360)*r)}`,
+        `Repurchase price = cash + interest = ${money(P)} + ${money(P*(days/360)*r)} = ${money(P + P*(days/360)*r)}`
       ]};
   }},
 
 { id:"e2", topic:"error", also:["haircut"], name:"Find the mistake — the haircut", gen(){
     const V = pick([100000000,200000000,500000000]);
     const h = pick([.02,.03,.05]);
-    const fault = pick(["addHaircut","haircutIsLoan","leverageFlip"]);
+    const fault = pick(["addHaircut","haircutIsLoan","shareFlip"]);
     const advance = fault==="addHaircut" ? V*(1+h)
                   : fault==="haircutIsLoan" ? V*h
                   : V*(1-h);
@@ -635,15 +715,15 @@ const CHOICE_TEMPLATES = [
             ? `<b>Step 2.</b> Cash advanced = ${money(V)} &times; (1 + ${pctS(h,1)}) = ${money(advance)}`
             : `<b>Step 2.</b> Cash advanced = ${money(V)} &times; (1 &minus; ${pctS(h,1)}) = ${money(advance)}`),
       `<b>Step 3.</b> Your own capital in the trade = ${money(V)} &minus; ${money(advance)} = ${money(cap)}`,
-      fault==="leverageFlip"
-        ? `<b>Step 4.</b> Leverage = ${pctS(h,1)} of the position, so ${(h*100).toFixed(0)}&times;`
-        : `<b>Step 4.</b> Leverage = ${money(V)} &divide; ${money(cap)} = ${(V/cap).toFixed(2)}&times;`
+      fault==="shareFlip"
+        ? `<b>Step 4.</b> Share of the position you fund yourself = ${money(advance)} &divide; ${money(V)} = ${pctS(advance/V,1)}`
+        : `<b>Step 4.</b> Share of the position you fund yourself = ${money(cap)} &divide; ${money(V)} = ${pctS(cap/V,1)}`
     ];
     const fine = [
       `Step 1 is fine &mdash; those are the inputs.`,
       `Step 2 is fine &mdash; the lender advances everything except the haircut.`,
       `Step 3 is fine &mdash; whatever the lender does not advance, you must fund yourself.`,
-      `Step 4 is fine &mdash; leverage is the position divided by the capital behind it.`
+      `Step 4 is fine &mdash; the share you fund yourself is your capital divided by the collateral's value.`
     ];
     let at, why;
     if (fault==="addHaircut"){
@@ -651,7 +731,7 @@ const CHOICE_TEMPLATES = [
     } else if (fault==="haircutIsLoan"){
       at=1; why=`That is the haircut itself &mdash; the slice the lender holds back. The advance is the other ${pctS(1-h,1)}, or ${money(V*(1-h))}.`;
     } else {
-      at=3; why=`Leverage is the position divided by the capital behind it: ${money(V)} &divide; ${money(V*h)} = ${(1/h).toFixed(0)}&times;. A ${pctS(h,1)} haircut means high leverage, not low.`;
+      at=3; why=`That divides the lender's advance by the collateral, which is the lender's share, ${pctS(1-h,1)}. The share you fund yourself is your capital over the collateral: ${money(V*h)} &divide; ${money(V)} = ${pctS(h,1)}, which is the haircut.`;
     }
     return {
       mode:"choice",
@@ -662,7 +742,7 @@ const CHOICE_TEMPLATES = [
       steps:[
         `Cash advanced = ${money(V)} &times; (1 &minus; ${pctS(h,1)}) = ${money(V*(1-h))}`,
         `Your capital = ${money(V*h)}`,
-        `Leverage = ${money(V)} / ${money(V*h)} = ${(1/h).toFixed(0)}&times;`
+        `Share you fund yourself = ${money(V*h)} / ${money(V)} = ${pctS(h,1)}, which is the haircut`
       ]};
   }},
 
@@ -713,7 +793,7 @@ const CHOICE_TEMPLATES = [
   }},
 
 
-{ id:"k4", topic:"concept", also:["leverage"], name:"Orange County", gen(){
+{ id:"k4", topic:"concept", name:"Orange County", gen(){
     const opts = shuffle([
       {html:`He bought Treasuries, repoed them out to raise cash, and bought more &mdash; a levered bet that rates would fall`, correct:true,
        msg:`Right. It worked through 1993 while rates fell. When the Fed began raising in February 1994 the securities fell, lenders wanted more collateral, and losses reached $1.5 billion.`},
@@ -782,13 +862,13 @@ const CHOICE_TEMPLATES = [
       ]};
   }},
 
-{ id:"k7", topic:"concept", also:["leverage"], name:"Which haircut allows more leverage", gen(){
+{ id:"k7", topic:"concept", also:["haircut"], name:"Which haircut supports the larger position", gen(){
     const opts = shuffle([
-      {html:`The 2% haircut &mdash; the same capital supports 50 times the position`, correct:true,
-       msg:`Right. Leverage is 1/haircut: 1/0.02 = 50&times; against 1/0.05 = 20&times;. The lender, in setting the haircut, sets how large your position can be.`},
+      {html:`The 2% haircut &mdash; the same capital supports a larger position`, correct:true,
+       msg:`Right. With a 2% haircut you fund $2 of every $100 yourself, so $2 of capital supports $100 of securities; with a 5% haircut it supports only $40. The lender, in setting the haircut, sets how large your position can be.`},
       {html:`The 5% haircut, since more collateral is held back`, correct:false,
-       msg:`Holding more back means you must fund more yourself, which is <em>less</em> leverage.`},
-      {html:`They give the same leverage; only the rate differs`, correct:false,
+       msg:`Holding more back means you must fund more of each position yourself, so the same capital supports a <em>smaller</em> position.`},
+      {html:`They support the same position; only the rate differs`, correct:false,
        msg:`No. The rate sets the cost of the position; the haircut sets its maximum size.`},
       {html:`It depends on the repo rate, not the haircut`, correct:false,
        msg:`The rate determines what the financing costs. How much you can hold is fixed by the haircut.`}
@@ -799,9 +879,9 @@ const CHOICE_TEMPLATES = [
       ask:"Which lets you run the larger position on a given amount of capital?",
       options:opts,
       steps:[
-        `With a 2% haircut, $2 of capital supports $100 of securities &mdash; 50&times;.`,
-        `With a 5% haircut, the same $2 supports $40 &mdash; 20&times;.`,
-        `Leverage = 1 / haircut.`
+        `With a 2% haircut you fund 2% of the position yourself, so $2 of capital supports $100 of securities.`,
+        `With a 5% haircut you fund 5%, so the same $2 supports only $40.`,
+        `The smaller the haircut, the larger the position a given amount of capital can carry.`
       ]};
   }},
 
@@ -985,7 +1065,7 @@ const CHOICE_TEMPLATES = [
       steps:[
         `A cash lender who does not care which bond it gets earns the GC rate of ${gc.toFixed(2)}%.`,
         `To obtain one particular bond it must accept less &mdash; and it accepts ${((gc-sp)*100).toFixed(0)}bp less for C.`,
-        `Read the other way: C's owner finances it ${((gc-sp)*100).toFixed(0)}bp cheaper than everyone else. Specialness is a securities-borrowing fee wearing a repo rate's clothing.`
+        `Read the other way: C's owner finances it ${((gc-sp)*100).toFixed(0)}bp cheaper than everyone else. In effect, the ${((gc-sp)*100).toFixed(0)}bp is a fee for borrowing that particular bond.`
       ]};
   }},
 
@@ -997,7 +1077,6 @@ const TOPICS = [
   {key:"mechanics", label:"Repo mechanics"},
   {key:"gc", label:"GC & specials"},
   {key:"haircut", label:"Haircuts"},
-  {key:"leverage", label:"Leverage"},
   {key:"finance", label:"Financing a trade"},
   {key:"short", label:"Shorting"},
   {key:"fed", label:"The Fed's facilities"},
