@@ -1,0 +1,1552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Note 10 — Floating Rate Notes: practice</title>
+<style>
+  :root{
+    --bg:#ffffff; --fg:#1a1a1a; --muted:#5f6672; --line:#e2e5ea;
+    --card:#f7f8fa; --accent:#00205b; --accent-fg:#ffffff;
+    --ok-bg:#e8f5ec; --ok-line:#2e7d47; --ok-fg:#17532c;
+    --no-bg:#fdeceb; --no-line:#c0392b; --no-fg:#8e2b20;
+    --hint-bg:#fff8e6; --hint-line:#b8860b; --hint-fg:#6b4e00;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#14161a; --fg:#e8eaed; --muted:#9aa3af; --line:#2b2f36;
+      --card:#1b1e24; --accent:#7f9cd4; --accent-fg:#0d1015;
+      --ok-bg:#132a1c; --ok-line:#4caf70; --ok-fg:#9fdcb4;
+      --no-bg:#2c1614; --no-line:#e06c5d; --no-fg:#f0a99f;
+      --hint-bg:#2a2313; --hint-line:#d4a017; --hint-fg:#e5c976;
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:0; background:var(--bg); color:var(--fg);
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  .wrap{max-width:760px; margin:0 auto; padding:24px 18px 64px}
+  header{border-bottom:1px solid var(--line); padding-bottom:14px; margin-bottom:20px}
+  h1{font-size:1.35rem; margin:0 0 4px}
+  .sub{color:var(--muted); font-size:.9rem}
+  .topics{display:flex; flex-wrap:wrap; gap:7px; margin:18px 0}
+  .chip{
+    border:1px solid var(--line); background:var(--card); color:var(--fg);
+    padding:6px 12px; border-radius:999px; cursor:pointer; font-size:.85rem;
+    font-family:inherit;
+  }
+  .chip[aria-pressed="true"]{background:var(--accent); color:var(--accent-fg); border-color:var(--accent)}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:10px;
+    padding:20px; margin-bottom:16px;
+  }
+  .qmeta{font-size:.75rem; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-bottom:10px}
+  .qtext{font-size:1.05rem; margin-bottom:6px}
+  .qtext b{font-variant-numeric:tabular-nums}
+  .ask{margin-top:14px; font-weight:600}
+  .row{display:flex; gap:9px; margin-top:14px; flex-wrap:wrap}
+  input[type=text]{
+    flex:1 1 190px; min-width:0; padding:11px 13px; font-size:1rem; font-family:inherit;
+    border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--fg);
+  }
+  input[type=text]:focus{outline:2px solid var(--accent); outline-offset:1px}
+  button{
+    padding:11px 17px; font-size:.95rem; font-family:inherit; border-radius:8px;
+    border:1px solid var(--accent); background:var(--accent); color:var(--accent-fg);
+    cursor:pointer; font-weight:600;
+  }
+  button.ghost{background:transparent; color:var(--fg); border-color:var(--line); font-weight:500}
+  button:disabled{opacity:.45; cursor:default}
+  .fb{border-radius:8px; padding:13px 15px; margin-top:15px; border-left:4px solid; font-size:.95rem}
+  .fb.ok{background:var(--ok-bg); border-color:var(--ok-line); color:var(--ok-fg)}
+  .fb.no{background:var(--no-bg); border-color:var(--no-line); color:var(--no-fg)}
+  .fb.hint{background:var(--hint-bg); border-color:var(--hint-line); color:var(--hint-fg)}
+  .fb strong{display:block; margin-bottom:3px}
+  details{margin-top:15px; border-top:1px solid var(--line); padding-top:13px}
+  summary{cursor:pointer; font-size:.9rem; color:var(--muted); font-weight:600}
+  .steps{margin-top:11px; font-size:.92rem}
+  .steps div{padding:5px 0; border-bottom:1px dashed var(--line)}
+  .steps div:last-child{border-bottom:none; font-weight:600}
+  code{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.88em;
+    background:var(--bg); padding:1px 5px; border-radius:4px; border:1px solid var(--line);
+  }
+  .opts{display:flex; flex-direction:column; gap:8px; margin-top:14px}
+  .opt{
+    text-align:left; padding:11px 14px; border:1px solid var(--line); background:var(--bg);
+    color:var(--fg); border-radius:8px; cursor:pointer; font-family:inherit;
+    font-size:.95rem; font-weight:400; line-height:1.55;
+  }
+  .opt:hover:not(:disabled){border-color:var(--accent)}
+  .opt.right{background:var(--ok-bg); border-color:var(--ok-line); border-width:2px}
+  .opt.wrong{background:var(--no-bg); border-color:var(--no-line)}
+  .opt:disabled{cursor:default}
+  .opt sup{font-size:.75em}
+  .stats{display:flex; gap:22px; font-size:.86rem; color:var(--muted); margin-top:22px;
+         border-top:1px solid var(--line); padding-top:14px; flex-wrap:wrap}
+  .stats b{color:var(--fg); font-variant-numeric:tabular-nums}
+  footer{margin-top:26px; font-size:.78rem; color:var(--muted); text-align:center}
+  /* The hidden attribute's UA rule is only [hidden]{display:none}, which loses
+     to author rules like .opts{display:flex} and .row{display:flex}. Without
+     this, hiding those panels silently does nothing. */
+  .modes{display:flex; gap:8px; align-items:center; margin-top:10px;
+         font-size:.84rem; color:var(--muted); flex-wrap:wrap}
+  .modes .chip{font-size:.84rem; padding:5px 12px}
+  .prog{margin-top:18px}
+  .progtop{display:flex; justify-content:space-between; align-items:baseline;
+           font-size:.86rem; color:var(--muted); margin-bottom:6px}
+  .progtop b{color:var(--fg); font-variant-numeric:tabular-nums}
+  .progbar{height:9px; border-radius:999px; background:var(--line); overflow:hidden}
+  .progfill{height:100%; width:0%; border-radius:999px; background:var(--accent);
+            transition:width .35s ease}
+  .progreset{background:none; border:none; color:var(--muted); font-size:.8rem;
+             padding:0; cursor:pointer; text-decoration:underline; font-weight:400}
+  .progreset:hover{color:var(--fg)}
+  [hidden]{display:none !important}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Note 10 — Floating Rate Notes: practice</h1>
+  <div class="sub">Answers are matched within 0.25% unless a question needs more precision.</div>
+</header>
+
+<div class="topics" id="topics" role="group" aria-label="Choose topics"></div>
+
+<div class="modes" id="modes" role="group" aria-label="Question order">
+  <span>Order</span>
+  <button class="chip" id="mShuffle" type="button" aria-pressed="true">Shuffle</button>
+  <button class="chip" id="mSeq" type="button" aria-pressed="false">In order</button>
+  <span id="seqPos"></span>
+</div>
+
+<div class="card" id="card">
+  <div class="qmeta" id="qmeta">—</div>
+  <div class="qtext" id="qtext">Loading…</div>
+  <div class="ask" id="qask"></div>
+  <div class="opts" id="opts" hidden></div>
+  <div class="row" id="inputrow">
+    <input type="text" id="ans" autocomplete="off" inputmode="decimal"
+           placeholder="Your answer" aria-label="Your answer">
+    <button id="check">Check</button>
+    <button id="next" class="ghost">New question</button>
+  </div>
+  <div id="fb"></div>
+  <details id="soldetails" hidden>
+    <summary>Show the worked solution</summary>
+    <div class="steps" id="steps"></div>
+  </details>
+</div>
+
+<div class="prog">
+  <div class="progtop">
+    <span>Templates solved unaided <b id="pDone">0</b> of <b id="pTotal">0</b></span>
+    <button class="progreset" id="pReset" type="button">reset</button>
+  </div>
+  <div class="progbar"><div class="progfill" id="progfill"></div></div>
+</div>
+
+<div class="stats">
+  <span>Attempted <b id="sAtt">0</b></span>
+  <span>Correct first try <b id="sFirst">0</b></span>
+  <span>Accuracy <b id="sAcc">—</b></span>
+  <span>Streak <b id="sStreak">0</b></span>
+  <span>Solutions opened <b id="sPeek">0</b></span>
+</div>
+
+<footer>Numbers are randomised, so every attempt is different. Nothing you type leaves this page.<br>Use the &rarr; and &larr; arrow keys to move between questions.</footer>
+
+</div>
+
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ utils */
+const pick = a => a[Math.floor(Math.random()*a.length)];
+/* stepped range, e.g. range(0.04,0.24,0.0025) -> 81 rates instead of a list of 6 */
+const range = (lo,hi,step) => {
+  const out=[]; for(let v=lo; v<=hi+1e-9; v+=step) out.push(Number(v.toFixed(8)));
+  return out;
+};
+const ORD = n => n + (["th","st","nd","rd"][(n%100-n%10!=10)*(n%10<4)*(n%10)]||"th");
+const money = v => "$" + v.toLocaleString("en-US",{minimumFractionDigits:2, maximumFractionDigits:2});
+const pct   = (v,d=4) => (v*100).toFixed(d).replace(/\.?0+$/,"") + "%";
+const pctS  = (v,d=2) => (v*100).toFixed(d) + "%";
+const REL_SEP  = 0.01;    // distractors must sit >1% from everything else
+const REL_MATCH= 0.0025;  // student answer counts as a match within 0.25%
+
+const near = (a,b,tol) =>
+  Number.isFinite(a) && Number.isFinite(b) &&
+  Math.abs(a-b) / Math.max(Math.abs(a), Math.abs(b), 1e-12) < tol;
+
+/* Drop distractors too close to the answer (or to each other) to diagnose.
+   Templates about small effects (perpetuity timing) pass a tighter `sep`. */
+function usable(correct, cands, sep){
+  const s = sep || REL_SEP;
+  const kept = [];
+  for (const c of cands){
+    if (!Number.isFinite(c.val)) continue;
+    if (near(c.val, correct, s)) continue;
+    if (kept.some(k => near(k.val, c.val, s))) continue;
+    kept.push(c);
+  }
+  return kept;
+}
+
+/* ------------------------------------------------------------- templates */
+/* ---------------------------------------------------------------- Note 10 ---
+   Floating rate notes: the coupon set in advance, duration and convexity at a
+   reset date and between resets, inverse floaters (replication, price,
+   duration), and compounded SOFR in arrears. Written 8 Oct 2026 to
+   _tools/TEMPLATE_RULES.md. Sources in Anh's earlier exams (2024-25 UG/MBA/MF):
+   d1 = sample final Q "20-year FRN at LIBOR + 2%"; x1 = sample final Q "dollar
+   duration and convexity of a 20-year FRN, 150 bp"; i1 = final_A Q "1-year
+   inverse floater, 10% - 6-month T-rate"; i2 = the note's Section 8 example and
+   the MBA/MF final's dollar duration of the same inverse floater.            */
+const frnZ = (cf,y,per) => cf/(1+y/per);                       // one cash flow, one compounding period
+const fixedP = (c,Y,n) => { let P=0; for(let t=1;t<=n;t++) P+=(10*c/2+(t===n?1000:0))/Math.pow(1+Y/200,t); return P; };
+const fixedDD = (c,Y,n) => { let D=0; const h=1+Y/200;
+  for(let t=1;t<=n;t++) D+=(10*c/2+(t===n?1000:0))/Math.pow(h,t)*(t/2)/h; return D; };
+// re-draw unless every distractor clears the key by `sep` and none sits within `tol` of it
+// written-out sums for a semi-annual bond with n half-years to run (Anh, 9 Oct 2026: students do not
+// read the Sigma sign, and a formula must not wrap from one line onto the next, so long sums are
+// stacked one term per line)
+const cfK = (cf,k,n) => (k===n ? cf+1000 : cf).toFixed(2);
+const pvT = (cf,hs,k,n) => `${cfK(cf,k,n)}/${hs}${k>1?`<sup>${k}</sup>`:""}`;
+const ks = n => Array.from({length:n},(_,i)=>i+1);
+const termsP  = (cf,hs,n=4) => ks(n).map(k=>pvT(cf,hs,k,n));
+const termsDD = (cf,hs,n=4) => ks(n).map(k=>`${pvT(cf,hs,k,n)} &times; ${(k/2).toFixed(1)}/${hs}`);
+const termsDC = (cf,hs,n=4) => ks(n).map(k=>{ const u=(k/2).toFixed(1); return `${pvT(cf,hs,k,n)} &times; (${u}<sup>2</sup> + ${u}/2)/${hs}<sup>2</sup>`; });
+const IND = "<br>&emsp;&emsp;";
+// a two-term sum stays on one line (Anh, 9 Oct 2026); only a four-term one is stacked, one term a line
+const stack = (lhs,terms,rhs) => terms.length <= 2 ? `${lhs} = ${terms.join(" + ")} = ${rhs}`
+  : `${lhs} = ${terms[0]}` + terms.slice(1).map(x=>`${IND}+ ${x}`).join("") + `${IND}= ${rhs}`;
+const farFrom = (correct,cands,sep) => cands.every(c=>Number.isFinite(c.val) && !near(c.val,correct,sep));
+
+const TEMPLATES = [{ id:"c1", topic:"coupon", name:"Which rate sets the coupon", gen(){
+    /* The note's Section 2 tables: the coupon paid at t is set by the benchmark at t - 0.5.
+       Path steps of at least 0.2% keep the "rate on the payment date" slip 1% or more away. */
+    const F=1000;
+    let b, s, k, correct, cands;
+    do {
+      b=[pick(range(2.6,5.4,0.2))];
+      for(let i=1;i<5;i++) b.push(+(b[i-1]+pick([-0.6,-0.4,-0.2,0.2,0.4,0.6])).toFixed(2));
+      s=pick([0.6,0.8,1.0,1.2,1.6,2.0,2.4,3.0]);
+      k=pick([2,3,4]);                                          // the payment at time k/2
+      correct=0.5*(b[k-1]+s)/100*F;
+      cands=[
+        {val:0.5*(b[k]+s)/100*F, msg:`You used the benchmark rate on the payment date. The coupon paid at time ${k/2} was set six months earlier, at time ${(k-1)/2}, from the rate then: that is what "set in advance" means.`},
+        {val:(b[k-1]+s)/100*F, msg:`That is a full year's interest. The rate is quoted per annum and the coupon covers six months, so it pays half of it.`},
+        {val:0.5*b[k-1]/100*F, msg:`You left out the spread. The coupon rate is the benchmark rate <em>plus</em> ${s.toFixed(2)}%.`}
+      ];
+    } while (b.some(x=>x<1) || !farFrom(correct,cands,REL_SEP));
+    const path=b.map((x,i)=>`time ${i/2}: <b>${x.toFixed(2)}%</b>`).join(", ");
+    return {
+      unit:"money",
+      text:`A 2-year FRN with face value \$1,000 pays semi-annual coupons at the 6-month benchmark rate
+            + <b>${s.toFixed(2)}%</b>. The 6-month benchmark rate (p.a., semi-annual compounding) turns
+            out to be: ${path}.`,
+      ask:`What coupon does the FRN pay at time ${k/2}?`,
+      correct,
+      cands,
+      steps:[
+        `The coupon paid at time ${k/2} is set at the start of its six months, at time ${(k-1)/2}, when the benchmark rate was ${b[k-1].toFixed(2)}%`,
+        `Coupon rate = ${b[k-1].toFixed(2)}% + ${s.toFixed(2)}% = ${(b[k-1]+s).toFixed(2)}%`,
+        `Coupon = 0.5 &times; ${(b[k-1]+s).toFixed(2)}% &times; 1000 = <b>${money(correct)}</b>`
+      ]};
+  }},
+
+{ id:"d1", topic:"reset", name:"The duration of a FRN at a reset date", gen(){
+    /* Sample final 2024-25, Q "20-year FRN at LIBOR + 2%" (key 0.4831), with real maturities
+       (rule 6). The maturity is printed because every FRN has one; that it does not matter is
+       the point, and it feeds the "duration of a zero to maturity" distractor.             */
+    let T, b, s, y, correct, cands;
+    do {
+      T=pick([2,3,5,7,10]);
+      b=pick(range(2.0,6.0,0.2)); s=pick([0.6,0.8,1.0,1.2,1.6,2.0,2.4,3.0]);
+      y=(b+s)/100;
+      correct=0.5/(1+y/2);
+      cands=[
+        {val:0.5/(1+y), msg:`The yield is p.a. with semi-annual compounding, so the six months are discounted at y/2, not y: 0.5 / (1 + ${pctS(y,2)}/2).`},
+        {val:T/(1+y/2), msg:`That is the duration of a ${T}-year zero. A FRN can be viewed as a zero that matures at the next reset, six months away, whatever its maturity: at that date it pays the coupon and is worth par.`},
+        {val:0.5, msg:`Close, but duration here is the modified duration, T / (1 + y/2), so the half-year is divided by 1 + y/2.`},
+        {val:0.5/(1+b/200), msg:`The issuer pays ${s.toFixed(2)}% over the benchmark, so its next payment is discounted at the benchmark rate <em>plus</em> the spread.`}
+      ];
+    } while (usable(correct,cands).length<3 || cands.some(c=>near(c.val,correct,2*REL_MATCH)));
+    return {
+      unit:"number",
+      text:`A ${T}-year FRN, face value \$1,000, pays semi-annual coupons at the 6-month benchmark rate
+            + <b>${s.toFixed(2)}%</b>. Today is a coupon reset date, and the 6-month benchmark rate is
+            <b>${b.toFixed(2)}% p.a.</b>, compounded semi-annually. The issuer's credit has not changed
+            since the FRN was issued.`,
+      ask:"What is the FRN's duration?",
+      correct,
+      cands,
+      steps:[
+        `At the next reset, six months away, the FRN pays its coupon and is worth par, so it can be viewed as a 6-month zero`,
+        `Its yield is the benchmark rate plus the spread: y = ${b.toFixed(2)}% + ${s.toFixed(2)}% = ${pctS(y,2)}`,
+        `Duration = T / (1 + y/2) = 0.5 / (1 + ${pctS(y,2)}/2) = <b>${correct.toFixed(4)}</b>`,
+        `The ${T}-year maturity never enters.`
+      ]};
+  }},
+
+{ id:"x1", topic:"reset", name:"A FRN's price change from dollar duration and convexity", gen(){
+    /* Sample final 2024-25, Q "20-year FRN at the 6-month T-rate, 150 bp" (key -$7.26), with a
+       spread and real maturities. The duration-only estimate lands within 1% of the key (its gap is
+       about half the yield change: 0.5% at 100 bp), so it is not offered; moves of 100 bp or more
+       and tol 0.2% keep it from scoring. Stem and Step 1 reworded 9 Oct 2026 (Anh): say that today's reset
+       fixes the coupon paid in six months, and do not call the FRN "a zero worth $1,000" for six months (checked on every draw below). tol was cent-level until the
+       blind sitting of 8 Oct 2026: exact repricing, rounded to the cent, missed it by $0.0004.          */
+    const F=1000;
+    let T, b, s, d, y, h, dD, dC, correct, cands;
+    do {
+      T=pick([2,3,5]);
+      b=pick(range(2.0,6.0,0.2)); s=pick([0.6,1.0,1.6,2.0,2.4,3.0]);
+      d=pick([100,125,150,200]);                                 // basis points
+      y=(b+s)/100; h=1+y/2;
+      dD=F*0.5/h; dC=F*(0.25+0.25)/(h*h);
+      correct=-dD*d/1e4 + 0.5*dC*Math.pow(d/1e4,2);
+      const g=F*h;                                                // the face of the 6-month zero
+      cands=[
+        {val:-(g*0.5/h)*d/1e4 + 0.5*(g*0.5/(h*h))*Math.pow(d/1e4,2), msg:`You used ${money(g)} as the price. That is what the FRN pays in six months (coupon plus par); today, at a reset date, it is worth par, ${money(F)}. Dollar duration is price &times; duration.`},
+        {val:-(F*0.5/(1+y))*d/1e4 + 0.5*(F*0.5/Math.pow(1+y,2))*Math.pow(d/1e4,2), msg:`The yield compounds semi-annually, so the duration and convexity divide by 1 + y/2, not 1 + y.`},
+        {val:0, msg:`A FRN is back at par only at the next reset, when its coupon catches up with the benchmark. Until then the coupon is the one fixed this morning, so the FRN can be viewed as a 6-month zero, and a zero's price falls when its yield rises.`},
+        {val:-(F*T/h)*d/1e4 + 0.5*(F*(T*T+T/2)/(h*h))*Math.pow(d/1e4,2), msg:`That views the FRN as a ${T}-year zero. Its rate exposure runs only to the next reset, six months away.`}
+      ];
+    } while (usable(correct,cands).length<3 || near(-dD*d/1e4,correct,0.003));
+    return {
+      unit:"money", tol:0.002,
+      text:`A ${T}-year FRN, face value \$1,000, pays semi-annual coupons at the 6-month benchmark rate
+            + <b>${s.toFixed(2)}%</b>. Today is a coupon reset date: the 6-month benchmark rate is
+            <b>${b.toFixed(2)}% p.a.</b>, compounded semi-annually, and today's reset uses it to fix the
+            coupon the FRN pays six months from now. Moments after the reset, the 6-month benchmark rate
+            rises by <b>${d} basis points</b>. The coupon already fixed does not change, and neither does
+            the spread the market asks of the issuer.`,
+      ask:"Using dollar duration and dollar convexity, what is the change in the FRN's price? (Enter a negative number for a fall.)",
+      correct,
+      cands,
+      steps:[
+        `At the reset, before the rate change, the FRN is worth par: P = \$1,000`,
+        `Today's reset fixes the coupon paid in six months at 0.5 &times; (${b.toFixed(2)}% + ${s.toFixed(2)}%) &times; 1000 = ${money(F*y/2)}, so until the next reset the FRN can be viewed as a 6-month zero with face ${money(F*h)}, at y = ${b.toFixed(2)}% + ${s.toFixed(2)}% = ${pctS(y,2)}. (Check: ${(F*h).toFixed(2)} / (1 + ${pctS(y,2)}/2) = ${money(F)}.)`,
+        `\$\$duration = P &times; T / (1 + y/2) = 1000 &times; 0.5 / ${h.toFixed(4)} = ${dD.toFixed(4)}`,
+        `\$\$convexity = P &times; (T<sup>2</sup> + T/2) / (1 + y/2)<sup>2</sup> = 1000 &times; 0.5 / ${h.toFixed(4)}<sup>2</sup> = ${dC.toFixed(4)}`,
+        `Change = &minus;${dD.toFixed(4)} &times; ${(d/1e4).toFixed(4)} + 0.5 &times; ${dC.toFixed(4)} &times; ${(d/1e4).toFixed(4)}<sup>2</sup> = <b>&minus;${money(-correct)}</b>`,
+        `The fall lasts only until the next reset: then the coupon catches up with the higher benchmark and the FRN is back at par.`
+      ]};
+  }},
+
+{ id:"b1", topic:"between", name:"Valuing a FRN between resets", gen(){
+    /* The note's Section 6 example (4 months in, 2-month rate 5%, spread 3%: $1,016.45), with
+       1, 2 or 3 months to the next reset. Matched to about 20 cents (tol 0.0002): leaving the
+       spread out of the discount rate moves the value by only s x m/12, as little as 0.05%, and
+       must not score. Checked on every draw below. Two slips are not offered because they land
+       too close: "par" sits on top of the y/2 distractor (both near $1,000), and setting the
+       coupon from today's rate moves the value by (bm - b0)/2, under 0.3%. The benchmark always
+       moves between the two dates so that slip never gives the key (checked: gap > 0.04%).  */
+    const F=1000, CMP={1:"compounded monthly",2:"compounded every two months",3:"compounded quarterly"};
+    let m, b0, bm, s, c, y, CF, g, correct, cands;
+    do {
+      m=pick([1,2,3]);
+      b0=pick(range(2.0,6.0,0.2)); bm=+(b0+pick([-0.6,-0.4,-0.2,0.2,0.4,0.6])).toFixed(2);
+      s=pick([0.6,0.8,1.0,1.2,1.6,2.0,2.4,3.0]);
+      c=(b0+s)/100; y=(bm+s)/100;
+      CF=F*(1+c/2); g=1+y*m/12;
+      correct=CF/g;
+      cands=[
+        {val:CF/(1+y/2), msg:`The ${m}-month rate is p.a., ${CMP[m]}, so ${m} month${m>1?"s":""} is one period at y / ${12/m}, not y / 2. (Divide by 2 only for a six-month period.)`},
+        {val:F/g, msg:`You left out the coupon. At the next reset the holder receives the coupon fixed at the last reset, ${money(F*c/2)}, as well as the \$1,000.`},
+        {val:CF/(1+y), msg:`You discounted at the full annual rate. ${pctS(y,2)} is p.a., ${CMP[m]}: one ${m}-month period earns y / ${12/m}.`},
+        ...(m!==3 ? [{val:CF/(1+y*(6-m)/12), msg:`You discounted over the ${6-m} months since the last reset (however you compounded them). What matters is the time still to run to the next one, ${m} month${m>1?"s":""}.`}] : [])
+      ];
+    } while (usable(correct,cands).length<3 || near(CF/(1+bm/100*m/12),correct,0.0003) ||
+             near(F*(1+y/2)/g,correct,0.0004));
+    return {
+      unit:"money", tol:0.0002,
+      text:`A 2-year FRN, face value \$1,000, pays semi-annual coupons at the 6-month benchmark rate +
+            <b>${s.toFixed(2)}%</b>. At its last reset, <b>${6-m} months ago</b>, the 6-month benchmark rate
+            was <b>${b0.toFixed(2)}% p.a.</b>, compounded semi-annually. Today the ${m}-month benchmark rate
+            is <b>${bm.toFixed(2)}% p.a.</b>, ${CMP[m]}, and the issuer still pays a spread of
+            ${s.toFixed(2)}% on a ${m}-month loan.`,
+      ask:"What is the FRN worth today?",
+      correct,
+      cands,
+      steps:[
+        `At the next reset, ${m} month${m>1?"s":""} away, the FRN pays the coupon set at the last reset and is worth par: 1000 &times; (1 + ${pctS(c,2)}/2) = ${CF.toFixed(2)}`,
+        `So it can be viewed as a ${m}-month zero with face ${CF.toFixed(2)}, at y = ${bm.toFixed(2)}% + ${s.toFixed(2)}% = ${pctS(y,2)} p.a., ${CMP[m]}`,
+        `Value = ${CF.toFixed(2)} / (1 + ${pctS(y,2)}/${12/m}) = <b>${money(correct)}</b>`
+      ]};
+  }},
+
+{ id:"b2", topic:"between", name:"Dollar duration between resets", gen(){
+    /* Section 6 again: duration of the m-month zero, T/(1 + y/(12/m)), times its value. Using the
+       zero's face instead of its price is off by only y x m/12 (0.2%-1.5%), so the key is matched
+       within 0.1% and that slip is offered only when it clears 1%.                          */
+    const F=1000, CMP={1:"compounded monthly",2:"compounded every two months",3:"compounded quarterly"};
+    let m, b0, bm, s, c, y, CF, g, V, D, correct, cands;
+    do {
+      m=pick([1,2,3]);
+      b0=pick(range(2.0,6.0,0.2)); bm=+(b0+pick([-0.6,-0.4,-0.2,0,0.2,0.4,0.6])).toFixed(2);
+      s=pick([0.6,0.8,1.0,1.2,1.6,2.0,2.4,3.0]);
+      c=(b0+s)/100; y=(bm+s)/100;
+      CF=F*(1+c/2); g=1+y*m/12; V=CF/g; D=(m/12)/g;
+      correct=V*D;
+      cands=[
+        {val:F*D, msg:`Dollar duration is price &times; duration, and between resets the price is not par: it is ${money(V)}.`},
+        {val:V*0.5/(1+y/2), msg:`That is the duration at a reset date. With ${m} month${m>1?"s":""} to the next reset, the FRN can be viewed as a ${m}-month zero: T = ${m}/12.`},
+        {val:V*(m/12)/(1+y/2), msg:`The ${m}-month rate is ${CMP[m]}: divide it by ${12/m}, not by 2.`},
+        ...(m!==3 ? [{val:V*((6-m)/12)/(1+y*m/12), msg:`T is the time still to run to the next reset, ${m} month${m>1?"s":""}, not the ${6-m} months since the last one.`}] : []),
+        {val:CF*D, msg:`You multiplied by ${CF.toFixed(2)}, what the FRN pays at the next reset. Dollar duration uses today's price, ${money(V)}.`}
+      ];
+    } while (usable(correct,cands).length<3 || cands.some(x=>near(x.val,correct,0.002)));
+    return {
+      unit:"number", tol:0.001,
+      text:`A 2-year FRN, face value \$1,000, pays semi-annual coupons at the 6-month benchmark rate +
+            <b>${s.toFixed(2)}%</b>. At its last reset, <b>${6-m} months ago</b>, the 6-month benchmark rate
+            was <b>${b0.toFixed(2)}% p.a.</b>, compounded semi-annually. Today the ${m}-month benchmark rate
+            is <b>${bm.toFixed(2)}% p.a.</b>, ${CMP[m]}, and the issuer still pays a spread of
+            ${s.toFixed(2)}% on a ${m}-month loan.`,
+      ask:"What is the FRN's dollar duration today?",
+      correct,
+      cands,
+      steps:[
+        `Treat the FRN as a ${m}-month zero paying 1000 &times; (1 + ${pctS(c,2)}/2) = ${CF.toFixed(2)} at the next reset, at y = ${pctS(y,2)}, ${CMP[m]}`,
+        `Price = ${CF.toFixed(2)} / (1 + ${pctS(y,2)}/${12/m}) = ${V.toFixed(4)}`,
+        `Duration = T / (1 + y/${12/m}) = (${m}/12) / (1 + ${pctS(y,2)}/${12/m}) = ${D.toFixed(6)}`,
+        `\$\$duration = ${V.toFixed(4)} &times; ${D.toFixed(6)} = <b>${(+V.toFixed(4) * +D.toFixed(6)).toFixed(4)}</b>`
+      ]};
+  }},
+
+{ id:"b3", topic:"between", name:"Convexity between resets", gen(){
+    /* Added 8 Oct 2026 (Anh, after outside review): Section 6's convexity, (T^2 + T/6)/(1 + y/6)^2
+       for the note's 2-month case. In general T = m/12 with y compounded every m months, so the
+       T/2 of a semi-annual zero becomes T/(12/m). The coupon at the last reset is not printed: the
+       convexity does not depend on it (rule 12).                                             */
+    const CMP={1:"compounded monthly",2:"compounded every two months",3:"compounded quarterly"};
+    let m, bm, s, y, per, T, g, correct, cands;
+    do {
+      m=pick([1,2,3]); per=12/m; T=m/12;
+      bm=pick(range(2.0,6.0,0.2)); s=pick([0.6,0.8,1.0,1.2,1.6,2.0,2.4,3.0]);
+      y=(bm+s)/100; g=1+y/per;
+      correct=(T*T+T/per)/(g*g);
+      cands=[
+        {val:(T*T+T/2)/(g*g), msg:`The T/2 in a semi-annual zero's convexity is T divided by the number of compounding periods a year. Compounded every ${m} month${m>1?"s":""}, that is ${per}: T<sup>2</sup> + T/${per}.`},
+        {val:(0.25+0.25)/Math.pow(1+y/2,2), msg:`That is the convexity at a reset date. With ${m} month${m>1?"s":""} to go, the FRN can be viewed as a ${m}-month zero: T = ${m}/12.`},
+        {val:(T*T+T/per)/g, msg:`The denominator is squared: (1 + y/${per})<sup>2</sup>.`},
+        {val:(T*T+T/per), msg:`You left out the denominator. Convexity divides by (1 + y/${per})<sup>2</sup>.`}
+      ];
+    } while (usable(correct,cands).length<3 || cands.some(x=>near(x.val,correct,2*REL_MATCH)));
+    return {
+      unit:"number",
+      text:`A FRN, face value \$1,000, pays semi-annual coupons at the 6-month benchmark rate +
+            <b>${s.toFixed(2)}%</b>. Its next reset is <b>${m} month${m>1?"s":""}</b> away. Today the ${m}-month
+            benchmark rate is <b>${bm.toFixed(2)}% p.a.</b>, ${CMP[m]}, and the issuer still pays a spread of
+            ${s.toFixed(2)}% on a ${m}-month loan.`,
+      ask:"What is the FRN's convexity today? (Give six decimal places.)",
+      correct,
+      cands,
+      steps:[
+        `Until the next reset the FRN can be viewed as a ${m}-month zero, at y = ${bm.toFixed(2)}% + ${s.toFixed(2)}% = ${pctS(y,2)} p.a., ${CMP[m]}`,
+        `Convexity = (T<sup>2</sup> + T/${per}) / (1 + y/${per})<sup>2</sup>, with T = ${m}/12`,
+        `= ((${m}/12)<sup>2</sup> + (${m}/12)/${per}) / (1 + ${pctS(y,2)}/${per})<sup>2</sup> = <b>${correct.toFixed(6)}</b>`
+      ]};
+  }},
+
+{ id:"i1", topic:"inverse", name:"Pricing an inverse floater", gen(){
+    /* Final A 2024-25, Q "1-year inverse floater, 10% minus the 6-month Treasury rate" (price
+       $980.87), with a spread on the issuer's FRNs so that the replicating coupon is (K + s)/2,
+       as in the note's Section 8. K whole and s on a 0.2 grid keep (K + s)/2 at two decimals,
+       second digit even (rule 7). The fixed yield sits at least 1% from that coupon, so the
+       fixed bond's own price is a usable distractor.                                      */
+    const F=1000;
+    let K, s, c, Y, P, correct, cands;
+    do {
+      K=pick([8,9,10,11,12]); s=pick([0.6,0.8,1.0,1.2,1.6,2.0,2.4,3.0]);
+      c=+((K+s)/2).toFixed(2);
+      Y=+(c+pick([-2.0,-1.6,-1.2,1.2,1.6,2.0])).toFixed(2);
+      P=fixedP(c,Y,2);
+      correct=2*P-F;
+      const P1=(10*c/2)/(1+Y/100)+(10*c/2+1000)/Math.pow(1+Y/100,2);
+      cands=[
+        {val:2*fixedP(K/2,Y,2)-F, msg:`You left out the FRN's spread. Together the FRN and the inverse floater pay (benchmark + ${s.toFixed(2)}%) + (${K}% &minus; benchmark) = ${(K+s).toFixed(2)}%, so the two fixed bonds pay ${c.toFixed(2)}% each, not ${(K/2).toFixed(2)}%.`},
+        {val:P, msg:`That is the price of one fixed-rate bond. The inverse floater is <em>two</em> of them less one FRN: 2 &times; ${money(P)} &minus; ${money(F)}.`},
+        {val:2*P1-F, msg:`The yield is p.a. compounded semi-annually, so each half-year is discounted at Y/2, not Y.`},
+        {val:2*fixedP((K-s)/2,Y,2)-F, msg:`The spread adds to the combined coupon; it does not come off it. FRN plus inverse floater pay benchmark + ${s.toFixed(2)}% + ${K}% &minus; benchmark = ${(K+s).toFixed(2)}%.`}
+      ];
+    } while (Y<1 || usable(correct,cands).length<3 || cands.some(x=>near(x.val,correct,2*REL_MATCH)));
+    const h=1+Y/200, cf=10*c/2;
+    return {
+      unit:"money",
+      text:`A borrower's FRNs pay the 6-month benchmark rate + <b>${s.toFixed(2)}%</b>. It also issues a
+            1-year inverse floater, face value \$1,000, paying semi-annual coupons at <b>${K}%</b> &minus;
+            the 6-month benchmark rate. Its 1-year fixed-rate bonds yield <b>${Y.toFixed(2)}% p.a.</b>,
+            compounded semi-annually. Today is a coupon reset date.`,
+      ask:"What is the inverse floater worth?",
+      correct,
+      cands,
+      steps:[
+        `FRN + inverse floater pay benchmark + ${s.toFixed(2)}% + ${K}% &minus; benchmark = ${(K+s).toFixed(2)}%: the same as two fixed bonds paying ${c.toFixed(2)}% each`,
+        `So inverse floater = 2 fixed ${c.toFixed(2)}% bonds &minus; 1 FRN`,
+        `Fixed bond: ${cf.toFixed(2)} / ${h.toFixed(4)} + ${(cf+1000).toFixed(2)} / ${h.toFixed(4)}<sup>2</sup> = ${P.toFixed(4)}; the FRN is at par on a reset date`,
+        `Inverse floater = 2 &times; ${P.toFixed(4)} &minus; 1000 = <b>${money(correct)}</b>`,
+        `The maturity of the borrower's FRNs is not important, as long as it is no less than 1 year (the inverse floater's): on a reset date a FRN is worth par whatever its maturity.`
+      ]};
+  }},
+
+{ id:"i2", topic:"inverse", name:"The duration of an inverse floater", gen(){
+    /* The note's Section 8 example (2-year, cap 10%, spread 3%, fixed yield 7%, benchmark 3%:
+       duration 3.2251), drawn. Blind sitting, 8 Oct 2026 (two of three readers): the benchmark was drawn
+       apart from the fixed yield, so an issuer paying 6.40% for six months could have a 4.00% 2-year
+       yield, and the stem's "treat the curve as flat at 4.00%" invited discounting the FRN at 4%.
+       Now b + s sits 0-1% below Y (an upward-sloping curve, as in the note), and the "flat" sentence
+       is gone. "2D_fixed - D_FRN" (durations, not dollar durations) is off by
+       2(1000 - P)(D_f - D_FRN)/(2P - 1000): the fixed bond's price is kept at least 1% from par
+       so that slip clears the key by 1%. Worked solution as a value-weighted average of durations, the
+       FRN's weight negative (Anh, 9 Oct 2026; as in the 2024-25 final's hint), not via dollar durations.                                                  */
+    const F=1000;
+    let K, s, c, Y, b, P, dDf, Dfrn, Pinv, dDinv, correct, cands;
+    do {
+      K=pick([8,9,10,11,12]); s=pick([0.6,0.8,1.0,1.2,1.6,2.0,2.4,3.0]);
+      c=+((K+s)/2).toFixed(2);
+      Y=+(c+pick([-1.6,-1.2,-0.8,0.8,1.2,1.6])).toFixed(2);
+      b=+(Y-s-pick([0,0.2,0.4,0.6,0.8,1.0])).toFixed(2);   // consistent with Y (blind sitting, 8 Oct 2026)
+      P=fixedP(c,Y,4); dDf=fixedDD(c,Y,4);
+      Dfrn=0.5/(1+(b+s)/200);
+      Pinv=2*P-F; dDinv=2*dDf-F*Dfrn;
+      correct=dDinv/Pinv;
+      cands=[
+        {val:dDinv/F, msg:`You divided by \$1,000. Each weight is a position's value over the inverse floater's own price, 2 &times; ${P.toFixed(2)} &minus; 1000 = ${Pinv.toFixed(2)}, so that the weights add to one.`},
+        {val:2*dDf/P-Dfrn, msg:`You weighted by the number of bonds (2 and &minus;1), not by value. The weights are each position's value over the inverse floater's price: 2 &times; ${P.toFixed(2)} / ${Pinv.toFixed(2)} for the fixed bonds and &minus;1000 / ${Pinv.toFixed(2)} for the FRN.`},
+        {val:2*dDf/Pinv, msg:`You left out the FRN. The inverse floater is short one FRN, which enters the weighted average with a negative weight, &minus;1000 / ${Pinv.toFixed(2)}.`},
+        {val:(2*dDf-F*2/(1+(b+s)/200))/Pinv, msg:`The FRN can be viewed as a zero maturing at the next reset, six months away, not at its 2-year maturity, and its duration is that zero's.`}
+      ];
+    } while (Y<1 || b<1 || usable(correct,cands).length<3 || cands.some(x=>near(x.val,correct,2*REL_MATCH)));
+    const h=1+Y/200, cf=10*c/2;
+    // every figure rounded as printed before it is used (Anh, 9 Oct 2026: weights, not dollar durations)
+    const Pp=+P.toFixed(4), dDp=+dDf.toFixed(4), Dfp=+(dDp/Pp).toFixed(6), Dp=+Dfrn.toFixed(6);
+    const PIp=+(2*Pp-F).toFixed(4), wF=+(2*Pp/PIp).toFixed(6), wR=+(-F/PIp).toFixed(6);
+    const DIp=+(wF*Dfp+wR*Dp).toFixed(4);
+    return {
+      unit:"number",
+      text:`A borrower's FRNs pay the 6-month benchmark rate + <b>${s.toFixed(2)}%</b>, and today, a
+            coupon reset date, the 6-month benchmark rate is <b>${b.toFixed(2)}% p.a.</b> It also has a
+            2-year inverse floater, face value \$1,000, paying semi-annual coupons at <b>${K}%</b> &minus;
+            the 6-month benchmark rate. Its 2-year fixed-rate bonds yield <b>${Y.toFixed(2)}% p.a.</b>
+            All rates are compounded semi-annually.`,
+      ask:"What is the inverse floater's duration?",
+      correct,
+      cands,
+      steps:[
+        `Inverse floater = 2 fixed bonds paying (${K}% + ${s.toFixed(2)}%)/2 = ${c.toFixed(2)}% &minus; 1 FRN`,
+        `Fixed bond, coupons of ${cf.toFixed(2)}:<br>${stack("P",termsP(cf,h.toFixed(4)),P.toFixed(4))}`,
+        `Fixed bond:<br>${stack("Dollar duration \$\$D",termsDD(cf,h.toFixed(4)),dDp.toFixed(4))}<br>Duration = \$\$D / P = ${dDp.toFixed(4)} / ${Pp.toFixed(4)} = ${Dfp.toFixed(6)}`,
+        `FRN: on a reset date its price is \$1,000, and its duration = 0.5 / (1 + ${(b+s).toFixed(2)}%/2) = ${Dp.toFixed(6)}`,
+        `Inverse floater price = 2 &times; ${Pp.toFixed(4)} &minus; 1000 = ${PIp.toFixed(4)}<br>Weights, each position's value over this price (they add to one; the FRN's is negative because the position is short it):<br>&emsp;&emsp;fixed bonds: 2 &times; ${Pp.toFixed(4)} / ${PIp.toFixed(4)} = ${wF.toFixed(6)}<br>&emsp;&emsp;FRN: &minus;1000 / ${PIp.toFixed(4)} = &minus;${(-wR).toFixed(6)}`,
+        `Duration = ${wF.toFixed(6)} &times; ${Dfp.toFixed(6)} &minus; ${(-wR).toFixed(6)} &times; ${Dp.toFixed(6)} = <b>${DIp.toFixed(4)}</b>`,
+        `The maturity of the borrower's FRNs is not important, as long as it is no less than 2 years (the inverse floater's): on a reset date a FRN is worth par, and it can be viewed as a 6-month zero for its duration, whatever its maturity.`
+      ]};
+  }},
+
+{ id:"i3", topic:"inverse", name:"The dollar convexity of an inverse floater", gen(){
+    /* Added 8 Oct 2026 (Anh, after outside review): the note's Section 8 dollar convexity (2 x 4,338.93
+       - 471.3 = 8,206.56), drawn on i2's setup: b + s sits 0-1% below Y. Eight cash-flow terms:
+       keep it on the drill page, OFF quizzes (rule 4).                                       */
+    const F=1000;
+    let K, s, c, Y, b, h, fr, dCf, Cfrn, correct, cands;
+    do {
+      K=pick([8,9,10,11,12]); s=pick([0.6,0.8,1.0,1.2,1.6,2.0,2.4,3.0]);
+      c=+((K+s)/2).toFixed(2);
+      Y=+(c+pick([-1.6,-1.2,-0.8,0.8,1.2,1.6])).toFixed(2);
+      b=+(Y-s-pick([0,0.2,0.4,0.6,0.8,1.0])).toFixed(2);
+      h=1+Y/200; fr=1+(b+s)/200;
+      dCf=0; for(let t=1;t<=4;t++) dCf+=(10*c/2+(t===4?1000:0))/Math.pow(h,t)*((t/2)*(t/2)+(t/2)/2)/(h*h);
+      Cfrn=(0.25+0.25)/(fr*fr);
+      correct=2*dCf-F*Cfrn;
+      cands=[
+        {val:2*dCf+F*Cfrn, msg:`The inverse floater is <em>short</em> the FRN, so the FRN's dollar convexity comes off: 2 &times; \$\$C(fixed) &minus; \$\$C(FRN).`},
+        {val:dCf-F*Cfrn, msg:`The inverse floater is long <em>two</em> fixed bonds, so double the fixed bond's dollar convexity.`},
+        {val:2*dCf-F*(4+1)/(fr*fr), msg:`The FRN can be viewed as a zero maturing at the next reset, six months away, so its convexity is that zero's: (0.5<sup>2</sup> + 0.5/2) / (1 + y/2)<sup>2</sup>, not that of a 2-year zero.`},
+        {val:2*dCf-Cfrn, msg:`You subtracted the FRN's convexity, not its dollar convexity. Multiply by its price, \$1,000, first.`}
+      ];
+    } while (Y<1 || b<1 || usable(correct,cands).length<3 || cands.some(x=>near(x.val,correct,2*REL_MATCH)));
+    const cf=10*c/2, dCp=+dCf.toFixed(4), Cp=+Cfrn.toFixed(6), dFp=+(F*Cp).toFixed(4);
+    return {
+      unit:"number",
+      text:`A borrower's FRNs pay the 6-month benchmark rate + <b>${s.toFixed(2)}%</b>, and today, a
+            coupon reset date, the 6-month benchmark rate is <b>${b.toFixed(2)}% p.a.</b> It also has a
+            2-year inverse floater, face value \$1,000, paying semi-annual coupons at <b>${K}%</b> &minus;
+            the 6-month benchmark rate. Its 2-year fixed-rate bonds yield <b>${Y.toFixed(2)}% p.a.</b>
+            All rates are compounded semi-annually.`,
+      ask:"What is the inverse floater's dollar convexity?",
+      correct,
+      cands,
+      steps:[
+        `Inverse floater = 2 fixed bonds paying (${K}% + ${s.toFixed(2)}%)/2 = ${c.toFixed(2)}% &minus; 1 FRN, so \$\$C(inverse) = 2 &times; \$\$C(fixed) &minus; \$\$C(FRN)`,
+        `Fixed bond, coupons of ${cf.toFixed(2)}:<br>${stack("Dollar convexity \$\$C",termsDC(cf,h.toFixed(4)),dCp.toFixed(4))}`,
+        `FRN: convexity = (0.5<sup>2</sup> + 0.5/2) / (1 + ${(b+s).toFixed(2)}%/2)<sup>2</sup> = ${Cp.toFixed(6)}, so \$\$C = 1000 &times; ${Cp.toFixed(6)} = ${dFp.toFixed(4)}`,
+        `\$\$C(inverse) = 2 &times; ${dCp.toFixed(4)} &minus; ${dFp.toFixed(4)} = <b>${(2*dCp-dFp).toFixed(4)}</b>`,
+        `The maturity of the borrower's FRNs is not important, as long as it is no less than 2 years (the inverse floater's): on a reset date a FRN is worth par, and it can be viewed as a 6-month zero for its convexity, whatever its maturity.`
+      ]};
+  }},
+
+{ id:"s1", topic:"sofr", name:"A coupon rate from compounded SOFR", gen(){
+    /* Section 9: [prod(1 + SOFR/360) - 1] x 360/91 + s, the spread added after compounding.
+       SOFR moves twice in the quarter (FOMC meetings), so the 91 days are 30 + 31 + 30 at three
+       flat rates. Two slips land under 0.5%: the day-weighted simple average (no compounding)
+       and compounding the spread daily. Neither is offered; tol 0.0005 keeps both from scoring,
+       which needs SOFR of 3% or more and a spread of 0.6% or more (checked on every draw).     */
+    const N=[30,31,30];
+    let r, s, prod, correct, cands, simple, spreadIn;
+    do {
+      r=[pick(range(3.0,4.6,0.02))];
+      r.push(+(r[0]+pick([-0.5,-0.24,0.24,0.5])).toFixed(2));
+      r.push(+(r[1]+pick([-0.5,-0.24,0.24,0.5])).toFixed(2));
+      s=pick([0.6,0.8,1.0,1.2,1.6]);
+      prod=N.reduce((p,n,i)=>p*Math.pow(1+r[i]/100/360,n),1);
+      correct=(prod-1)*360/91+s/100;
+      simple=N.reduce((a,n,i)=>a+n*r[i]/100,0)/91+s/100;
+      spreadIn=(N.reduce((p,n,i)=>p*Math.pow(1+(r[i]+s)/100/360,n),1)-1)*360/91;
+      cands=[
+        {val:(prod-1)+s/100, msg:`You did not annualise. The product minus one is the interest over 91 days; multiply it by 360/91 to quote it per annum, then add the spread.`},
+        {val:(prod-1)*360/91, msg:`You left out the spread. It is added on top, after the compounding.`},
+        {val:r[0]/100+s/100, msg:`That uses SOFR on the first day only, as if the rate were set in advance. Compounded SOFR is built from every day's rate over the period, so the coupon is known only at the end (in arrears).`},
+        {val:r[2]/100+s/100, msg:`That uses only the last month's SOFR. Every day of the 91 counts, at the rate for that day.`}
+      ];
+    } while (r.some(x=>x<3) || !farFrom(correct,cands,REL_SEP) ||
+             near(simple,correct,0.001) || near(spreadIn,correct,0.001));
+    const f=N.map((n,i)=>+Math.pow(1+r[i]/100/360,n).toFixed(8));
+    const pp=+f.reduce((a,x)=>a*x,1).toFixed(8), ann=+(100*(pp-1)*360/91).toFixed(4);
+    return {
+      unit:"percent", tol:0.0005,
+      text:`A FRN pays quarterly coupons at compounded SOFR in arrears + <b>${s.toFixed(2)}%</b>. Over
+            this 91-day coupon period, SOFR was <b>${r[0].toFixed(2)}%</b> for the first 30 days,
+            <b>${r[1].toFixed(2)}%</b> for the next 31 days and <b>${r[2].toFixed(2)}%</b> for the last
+            30 days.`,
+      ask:"What is the coupon rate for this period, in percent p.a.?",
+      correct,
+      cands,
+      steps:[
+        `Compounded SOFR = [(1 + SOFR on day 1/360) &times; (1 + SOFR on day 2/360) &times; &hellip; &times; (1 + SOFR on day 91/360) &minus; 1] &times; 360/91. With SOFR flat over each stretch, the days of a stretch give one power:`,
+        `${N.map((n,i)=>`(1 + ${r[i].toFixed(2)}%/360)<sup>${n}</sup> = ${f[i].toFixed(8)}`).join("<br>")}`,
+        `Product = ${f.map(x=>x.toFixed(8)).join(" &times; ")} = ${pp.toFixed(8)}`,
+        `(${pp.toFixed(8)} &minus; 1) &times; 360/91 = ${ann.toFixed(4)}%`,
+        `Add the spread after compounding: ${ann.toFixed(4)}% + ${s.toFixed(2)}% = <b>${(ann+s).toFixed(4)}%</b>`
+      ]};
+  }}
+
+];
+
+/* ======================= CHOICE-MODE ITEMS ==============================
+   Auto-graded by which option is clicked, not by a typed number.
+     topic "error"   — a worked solution with one planted mistake
+     topic "concept" — reason about the direction of an effect, no arithmetic
+   Directional items shuffle their own options so position carries no
+   information; spot-the-error items must stay in step order.            */
+
+function shuffle(a){
+  const out = a.slice();
+  for (let i=out.length-1; i>0; i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [out[i],out[j]] = [out[j],out[i]];
+  }
+  return out;
+}
+
+const CHOICE_TEMPLATES = [{ id:"k1", topic:"concept", also:["reset"], name:"Why a FRN is at par at a reset date", gen(){
+    const T=pick([2,3,5,7]), s=pick([0.6,1.0,1.6,2.0,3.0]);
+    const opts=shuffle([
+      {html:`Rolling a 6-month \$1,000 loan at the issuer's spread pays the same cash flows`, correct:true,
+       msg:`Right. Borrowing \$1,000 for six months at the benchmark rate + ${s.toFixed(2)}% and rolling it pays the same interest on the same dates as the FRN, and \$1,000 at the end. Two ways to get the same cash flows must raise the same amount today, so the FRN is worth \$1,000.`},
+      {html:`Its coupon rate equals the yield on the issuer's ${T}-year fixed-rate bonds`, correct:false,
+       msg:`The coupon is a 6-month rate plus a spread; it has nothing to do with the ${T}-year fixed yield. Par comes from matching a rolled 6-month loan, not a ${T}-year bond.`},
+      {html:`The benchmark rate cannot change between now and maturity`, correct:false,
+       msg:`It can and will change. The argument works whatever path the benchmark takes, because the FRN's coupon and the rolled loan's interest move together.`},
+      {html:`Its duration is zero, so its price cannot move`, correct:false,
+       msg:`Its duration is about 0.5, not zero: until the next reset its coupon is fixed, so it can be viewed as a 6-month zero. The price is par at the reset itself because of the rolled-loan argument.`}
+    ]);
+    return {mode:"choice",
+      text:`A ${T}-year FRN pays the 6-month benchmark rate + ${s.toFixed(2)}%, semi-annually, on \$1,000
+            of face value. Today is a coupon reset date, and the issuer still borrows at a spread of
+            ${s.toFixed(2)}%.`,
+      ask:"Why does the FRN trade at par today?",
+      options:opts,
+      steps:[
+        `Roll a 6-month loan of \$1,000 at the benchmark rate + ${s.toFixed(2)}%: each six months pay the interest and borrow the \$1,000 again.`,
+        `The interest payments are the FRN's coupons, date for date, and the last payment includes the \$1,000.`,
+        `Same cash flows, same value: the loan raises \$1,000 today, so the FRN is worth \$1,000.`
+      ]};
+  }},
+
+{ id:"k2", topic:"concept", also:["reset"], name:"The rolled-loan argument's assumptions", gen(){
+    /* Sample midterm 2 (2024 UG), Q "what assumption is made regarding the credit quality of the
+       issuer?" Asked the other way round: which is NOT needed.                               */
+    const opts=shuffle([
+      {html:`That the benchmark rate follows the path the market expects today`, correct:true,
+       msg:`Right: this one is not needed. The FRN's coupon and the rolled loan's interest are set from the same benchmark rate on the same dates, so they move together whatever the rate does. The other three are all assumptions the argument makes.`},
+      {html:`That there are no transaction costs in taking out each new loan`, correct:false,
+       msg:`This one is needed. Rolling means a new loan every six months, and the argument assumes they cost nothing to arrange.`},
+      {html:`That the issuer's credit quality stays the same`, correct:false,
+       msg:`This one is needed. If the issuer's credit worsened, each new 6-month loan would carry a wider spread, while the FRN's spread is fixed for its whole life, and the two would no longer match.`},
+      {html:`That the market's price of credit risk stays the same`, correct:false,
+       msg:`This one is needed. Even with the same rating, the spread on a new loan changes when the market's appetite for credit risk changes. The argument needs the spread on each new loan to stay where it was.`}
+    ]);
+    return {mode:"choice",
+      text:`The argument that a FRN is worth par at a reset date compares it with rolling a 6-month loan
+            at the issuer's spread.`,
+      ask:"Which of these does the argument NOT need to assume?",
+      options:opts,
+      steps:[
+        `The FRN and the rolled loan must pay the same amounts on the same dates.`,
+        `Changes in the benchmark rate change both by the same amount, so the benchmark can do anything.`,
+        `What must hold still is the issuer's spread on new loans (its credit, and the market's price of credit), and rolling must be costless.`
+      ]};
+  }},
+
+{ id:"k3", topic:"concept", also:["reset"], name:"After a downgrade", gen(){
+    /* 8 Oct 2026, after outside review: the benchmark has also FALLEN since issue, so "rates fell,
+       so above par" and "the two offset" are now wrong options. Neither matters: the coupon catches
+       up with the benchmark at every reset, and only the spread is stuck.                       */
+    const s=pick([0.6,1.0,1.2,1.6,2.0]), w=pick([0.6,1.0,1.4,2.0]), f=pick([0.6,1.0,1.4,2.0]);
+    const s2=+(s+w).toFixed(2);
+    const opts=shuffle([
+      {html:`Below par, because its spread is now less than the market asks`, correct:true,
+       msg:`Right. The FRN still pays benchmark + ${s.toFixed(2)}% for the rest of its life, but the market now asks benchmark + ${s2.toFixed(2)}% of this issuer. A note paying less than the market asks is worth less than par, reset date or not. Duration does not warn you: it measures interest rate risk, and this is credit risk.`},
+      {html:`At par, because today is a reset date`, correct:false,
+       msg:`Par at a reset date rests on the issuer's spread staying where it was. It has widened to ${s2.toFixed(2)}%, but the FRN's spread was fixed at ${s.toFixed(2)}% when it was issued, so the rolled-loan comparison no longer gives \$1,000.`},
+      {html:`Above par, because the benchmark rate has fallen since it was issued`, correct:false,
+       msg:`A fall in the benchmark is passed straight into the coupon at the next reset, so on a reset date it does nothing to the price. What the coupon cannot catch up with is the spread: fixed at ${s.toFixed(2)}%, while the market now asks ${s2.toFixed(2)}%.`},
+      {html:`At par, because the lower benchmark rate offsets the wider spread`, correct:false,
+       msg:`There is nothing to offset. The lower benchmark is already in today's coupon, and in the rate the market discounts at, so it cancels out exactly as it always does at a reset. The spread does not: the FRN pays ${s.toFixed(2)}% over the benchmark for the rest of its life, and the market now asks ${s2.toFixed(2)}%.`}
+    ]);
+    return {mode:"choice",
+      text:`A company issued a 5-year FRN paying the 6-month benchmark rate + ${s.toFixed(2)}%. Two years
+            later the 6-month benchmark rate is ${f.toFixed(2)} percentage points lower than at issue, and the
+            company has been downgraded: lenders now want the 6-month benchmark rate + ${s2.toFixed(2)}% from
+            it. Today is a coupon reset date.`,
+      ask:"Where does the FRN trade?",
+      options:opts,
+      steps:[
+        `The lower benchmark is in today's coupon and in the discount rate alike, so on its own it leaves the FRN at par.`,
+        `The FRN's spread, ${s.toFixed(2)}%, is fixed for its life; the market now asks ${s2.toFixed(2)}%.`,
+        `Par at a reset date assumes the issuer's spread is unchanged. Here it is not.`,
+        `Paying less than the market asks, the FRN trades below par, even on a reset date.`
+      ]};
+  }},
+
+{ id:"k4", topic:"concept", name:"Where the risk went", gen(){
+    const s=pick([1.0,1.6,2.0,2.4,3.0]);
+    const opts=shuffle([
+      {html:`Credit risk: the FRN's issuer may not pay`, correct:true,
+       msg:`Right. The ${s.toFixed(2)}% spread is there because the FRN's issuer might default. The bank has swapped interest rate risk, which hits every security at once, for credit risk, which it can spread across many borrowers and allow for.`},
+      {html:`None: the ${s.toFixed(2)}% is locked in whatever rates do`, correct:false,
+       msg:`It is locked in only if the borrower pays. The spread exists because the issuer might not, so the risk has changed form, not gone.`},
+      {html:`Interest rate risk: if the benchmark rises, the bank's borrowing costs more`, correct:false,
+       msg:`They do, but the FRN's coupon rises by the same amount at the same reset, so the ${s.toFixed(2)}% margin holds. That risk is what the FRN removed.`},
+      {html:`Interest rate risk: the FRN's price falls a long way when rates rise`, correct:false,
+       msg:`It does not fall far. At each reset the FRN is back at par, and in between its duration is at most half a year. That is very little interest rate risk.`}
+    ]);
+    return {mode:"choice",
+      text:`A bank borrows every six months at the 6-month benchmark rate, on the same dates as a FRN it
+            buys, which pays the 6-month benchmark rate + ${s.toFixed(2)}%. Whatever the benchmark does, it
+            earns the ${s.toFixed(2)}% difference.`,
+      ask:"What risk is the bank left with?",
+      options:opts,
+      steps:[
+        `The benchmark moves the bank's borrowing cost and the FRN's coupon together, so interest rate risk is gone.`,
+        `The ${s.toFixed(2)}% spread is pay for the issuer's chance of default.`,
+        `The bank has turned interest rate risk into credit risk, which is easier to diversify.`
+      ]};
+  }},
+
+{ id:"k5", topic:"concept", also:["reset"], name:"A 2-year and a long FRN", gen(){
+    /* Sample final 2024-25 Q "2-year vs 20-year FRN", midterm 2 (2024 UG) Q "Ford's 3-year and
+       7-year FRN", and the commented-out "Megan computes a duration of 1.5".                  */
+    const L=pick([7,10]), s=pick([0.6,1.0,1.6,2.0]);
+    const opts=shuffle([
+      {html:`About the same, a little under 0.5`, correct:true,
+       msg:`Right. Each can be viewed as a zero maturing at the next reset, six months away, when it pays its coupon and is worth par. Maturity does not enter: both durations are 0.5 / (1 + y/2).`},
+      {html:`The ${L}-year FRN's, at roughly ${L>7?"four":"three"} times the 2-year's`, correct:false,
+       msg:`That would be true of fixed-rate bonds. A FRN's rate exposure runs only to its next reset, six months away, whatever its maturity.`},
+      {html:`The 2-year FRN's is higher, because it repays its principal sooner`, correct:false,
+       msg:`Repaying principal sooner would make duration lower, not higher, and neither FRN's principal matters here: each is worth par at the next reset.`},
+      {html:`Both are zero, because a FRN is always at par`, correct:false,
+       msg:`A FRN is at par only on reset dates. Until the next one its coupon is fixed, so its price moves with rates like a 6-month zero's: duration about 0.5.`}
+    ]);
+    return {mode:"choice",
+      text:`The same company has a 2-year FRN and a ${L}-year FRN outstanding, both paying the 6-month
+            benchmark rate + ${s.toFixed(2)}%, semi-annually. Today is a coupon reset date for both.`,
+      ask:"How do their durations compare?",
+      options:opts,
+      steps:[
+        `At the next reset each pays its coupon and is worth par.`,
+        `So each can be viewed as a 6-month zero today: duration 0.5 / (1 + y/2), with y the benchmark rate plus the spread.`,
+        `The maturity never enters, so the two durations are the same.`
+      ]};
+  }},
+
+{ id:"k6", topic:"concept", also:["reset","sofr"], name:"Ranking four durations", gen(){
+    /* 8 Oct 2026, second blind sitting: the notes were labelled A-D in rank order, so the key always
+       read "A > B > C > D" (a guesser's default) and the labels clashed with the option letters. Now
+       W-Z, assigned at random. "Issuers of similar credit" dropped: one of the four is a Treasury.  */
+    const m=pick([1,2,3,4,5]);                         // months since the 6-month FRN's last reset
+    // by rank: 0 the 2-year fixed note (a little under 2), 1 the 6-month FRN (6-m months to reset),
+    // 2 the Treasury FRN (about a week), 3 the SOFR FRN (about a day)
+    const L=shuffle(["W","X","Y","Z"]);
+    const DESC=[`a 2-year fixed-rate note paying semi-annual coupons`,
+                `a 2-year FRN paying the 6-month benchmark rate + a spread, ${m} month${m>1?"s":""} after its last reset`,
+                `a 2-year Treasury FRN, which resets weekly off the 13-week bill rate, the day after a reset`,
+                `a 2-year FRN paying compounded SOFR in arrears, quarterly`];
+    const order=(a)=>a.map(i=>L[i]).join(" &gt; ");
+    const listed=[0,1,2,3].sort((a,b)=>L[a]<L[b]?-1:1).map(i=>`<b>${L[i]}</b>, ${DESC[i]}`).join("; ");
+    const opts=shuffle([
+      {html:order([0,1,2,3]), correct:true,
+       msg:`Right. A FRN's duration is the time over which its next coupon is already fixed: ${6-m} month${6-m>1?"s":""} for the 6-month benchmark FRN, at most a week for the Treasury FRN, a day for the SOFR FRN. The 2-year fixed-rate note's coupons are fixed for two years, so its duration is far longer than any of the FRNs' (a little under 2, since part of its value comes from coupons paid before maturity).`},
+      {html:order([1,0,2,3]), correct:false,
+       msg:`The 6-month benchmark FRN's coupon is fixed only until its next reset, ${6-m} month${6-m>1?"s":""} away. The fixed-rate note's coupons are fixed for two years.`},
+      {html:order([0,1,3,2]), correct:false,
+       msg:`The SOFR FRN's rate in effect resets every day, so its duration is about a day. The Treasury FRN's is fixed for up to a week.`},
+      {html:order([0,3,2,1]), correct:false,
+       msg:`Duration follows how long the next coupon is already fixed, not how often the note pays. The SOFR FRN pays quarterly, but its rate is rebuilt every day; the 6-month benchmark FRN's coupon is fixed for another ${6-m} month${6-m>1?"s":""}.`}
+    ]);
+    return {mode:"choice",
+      text:`Four notes: ${listed}.`,
+      ask:"Rank their durations, highest first.",
+      options:opts,
+      steps:[
+        `A FRN's duration is the length of time over which its next coupon is already fixed.`,
+        `${L[1]}: ${6-m} month${6-m>1?"s":""} to its next reset. ${L[2]}: under a week. ${L[3]}: about a day.`,
+        `${L[0]}, the fixed-rate note, has its coupons fixed for two years, so its duration is far longer than any FRN's. So ${order([0,1,2,3])}.`
+      ]};
+  }},
+
+{ id:"k7", topic:"concept", also:["inverse"], name:"Why an inverse floater is so rate-sensitive", gen(){
+    /* Sample final 2024-25 Q1(c), MBA/MF final, midterm 2 (2024 UG): "doubly hit".        */
+    const K=pick([8,9,10,11,12]), T=pick([2,3,5]);
+    const opts=shuffle([
+      {html:`A rate rise cuts its coupons as well as raising the rate they are discounted at`, correct:true,
+       msg:`Right. Price is expected cash flow over (1 + discount rate). For the inverse floater a rate rise cuts the coupons (${K}% minus a higher benchmark) and raises the discount rate. For the FRN the coupons rise, which offsets the higher discount rate.`},
+      {html:`Its coupon resets less often than the FRN's`, correct:false,
+       msg:`Both reset every six months off the same 6-month benchmark rate. The difference is in which way the coupons move when rates rise.`},
+      {html:`Its issuer is riskier than the FRN's issuer`, correct:false,
+       msg:`They have the same issuer. The difference is interest rate risk, not credit risk: the inverse floater's coupons fall when rates rise.`},
+      {html:`Its coupons are fixed at ${K}%, like a fixed-rate bond's`, correct:false,
+       msg:`They are not fixed: they are ${K}% <em>minus</em> the benchmark rate, so they fall when rates rise. That fall comes on top of the higher discount rate.`}
+    ]);
+    return {mode:"choice",
+      text:`The same issuer has a ${T}-year FRN paying the 6-month benchmark rate + a spread and a
+            ${T}-year inverse floater paying ${K}% &minus; the 6-month benchmark rate. Rates rise, and the
+            inverse floater's price falls far more than the FRN's.`,
+      ask:"Why?",
+      options:opts,
+      steps:[
+        `Price = expected cash flow / (1 + discount rate).`,
+        `Start with the FRN. A rate hike raises its expected coupon payments, which, holding all else constant, raises the FRN's value. But with higher rates the discount rate is higher too, so, holding all else constant, the cash flows are penalized more heavily, which drives the FRN's value down. These two opposing effects dampen each other, and the net effect of a rate hike on the FRN is muted.`,
+        `The inverse floater, on the other hand, is doubly hit when rates rise. Its expected coupon payments (${K}% minus a higher benchmark rate) become smaller, AND they are discounted more heavily. These two negative effects compound each other and produce a much larger fall in the inverse floater's value.`
+      ]};
+  }},
+
+{ id:"k8", topic:"concept", also:["inverse"], name:"Building an inverse floater", gen(){
+    /* Final A 2024-25 Q(a): "how the inverse floater can be created" from a fixed bond and a FRN.
+       K whole, s on a 0.2 grid: (K + s)/2 has two decimals, second digit even.              */
+    const K=pick([8,9,10,11,12]), s=pick([0.6,1.0,1.6,2.0,2.4,3.0]);
+    const c=((K+s)/2).toFixed(2), cK=(K/2).toFixed(2), cS=(K+s).toFixed(2);
+    const opts=shuffle([
+      {html:`Long two ${c}% fixed-rate bonds, short one FRN`, correct:true,
+       msg:`Right. FRN + inverse floater pay benchmark + ${s.toFixed(2)}% + ${K}% &minus; benchmark = ${cS}%, which is what two ${c}% fixed bonds pay. So the inverse floater is two ${c}% fixed bonds less one FRN.`},
+      {html:`Long two ${cK}% fixed-rate bonds, short one FRN`, correct:false,
+       msg:`That leaves out the FRN's spread. FRN + inverse floater pay ${cS}% in all, so each of the two fixed bonds pays ${c}%.`},
+      {html:`Long one ${cS}% fixed-rate bond, short one FRN`, correct:false,
+       msg:`Count the face values. FRN + inverse floater repay \$2,000 at maturity, so they match two fixed bonds, each paying half of ${cS}%, not one.`},
+      {html:`Long one ${c}% fixed-rate bond, long one FRN`, correct:false,
+       msg:`Holding the FRN adds benchmark-linked coupons; the inverse floater needs them taken away. It is long fixed bonds and <em>short</em> the FRN.`}
+    ]);
+    return {mode:"choice",
+      text:`An issuer's FRNs pay the 6-month benchmark rate + ${s.toFixed(2)}%. It wants to create an
+            inverse floater paying ${K}% &minus; the 6-month benchmark rate. All the notes have the same
+            maturity, \$1,000 of face value and semi-annual coupons, and come from this issuer.`,
+      ask:"Which position has the same cash flows as one inverse floater?",
+      options:opts,
+      steps:[
+        `FRN + inverse floater: (benchmark + ${s.toFixed(2)}%) + (${K}% &minus; benchmark) = ${cS}%, and \$2,000 at maturity.`,
+        `That is two fixed-rate bonds paying ${cS}% / 2 = ${c}% each.`,
+        `So inverse floater = two ${c}% fixed bonds &minus; one FRN.`
+      ]};
+  }},
+
+{ id:"k9", topic:"concept", also:["inverse"], name:"The fixed bond between the two", gen(){
+    const K=pick([8,10,12]), s=pick([1.0,2.0,3.0]);
+    const c=((K+s)/2).toFixed(2);
+    const opts=shuffle([
+      {html:`The value-weighted average of the FRN's and the inverse floater's durations`, correct:true,
+       msg:`Right. Two fixed bonds are one FRN plus one inverse floater, so their dollar durations add: 2 &times; \$\$D(fixed) = \$\$D(FRN) + \$\$D(inverse). Divide by the total value and the fixed bond's duration is the value-weighted average of the other two. The FRN takes almost none of the rate risk, so the inverse floater takes nearly all of it.`},
+      {html:`Equal to both of them: splitting the bonds does not change duration`, correct:false,
+       msg:`The total dollar duration does not change, but it is shared very unevenly: the FRN's duration is under 0.5, the inverse floater's is far above the fixed bond's.`},
+      {html:`The sum of the FRN's and the inverse floater's durations`, correct:false,
+       msg:`Dollar durations add; durations do not. Two fixed bonds' dollar duration is the sum of the other two's, so the fixed bond's duration is a weighted <em>average</em> of theirs.`},
+      {html:`Below both of them, because the fixed bond pays no floating coupon`, correct:false,
+       msg:`The FRN's duration is under 0.5, below a 3-year fixed coupon bond's. The fixed bond's duration lies between the FRN's and the inverse floater's.`}
+    ]);
+    return {mode:"choice",
+      text:`A bank holds two 3-year ${c}% fixed-rate bonds and splits their cash flows into one FRN paying the
+            6-month benchmark rate + ${s.toFixed(2)}% and one inverse floater paying ${K}% &minus; the
+            6-month benchmark rate, all with 3 years to maturity and \$1,000 face value.`,
+      ask:"Where does the fixed-rate bond's duration sit relative to the duration of the FRN and the duration of the inverse floater?",
+      options:opts,
+      steps:[
+        `Two fixed bonds = one FRN + one inverse floater, in cash flows and so in value.`,
+        `Dollar durations add: 2 &times; \$\$D(fixed) = \$\$D(FRN) + \$\$D(inverse).`,
+        `Divide by the total value: the fixed bond's duration is the value-weighted average of the FRN's and the inverse floater's.`
+      ]};
+  }},
+
+{ id:"k10", topic:"concept", also:["sofr"], name:"When a SOFR coupon is known", gen(){
+    const P=pick([["January 15","April 15"],["April 15","July 15"],["July 15","October 15"],["October 15","January 15"]]);
+    const opts=shuffle([
+      {html:`Only at the end, around ${P[1]}`, correct:true,
+       msg:`Right. Compounded SOFR in arrears is built from each day's SOFR over the period, and those rates are published one day at a time as the period runs. The coupon is known only when the period ends.`},
+      {html:`On ${P[0]}, from that day's SOFR`, correct:false,
+       msg:`That is how a 6-month benchmark rate (or LIBOR) works: set at the start, paid at the end. Compounded SOFR uses every day's rate in the period, not the first day's.`},
+      {html:`On ${P[0]}, because the 3-month rate is quoted that day`, correct:false,
+       msg:`SOFR is an overnight rate; there is no 3-month SOFR quoted at the start of the period. The 3-month rate is built afterwards, by compounding the daily rates.`},
+      {html:`Halfway through the period`, correct:false,
+       msg:`Halfway through, half of the daily rates are still to come. The coupon needs every one of them.`}
+    ]);
+    return {mode:"choice",
+      text:`A FRN pays quarterly coupons at compounded SOFR in arrears + a spread. One coupon period runs
+            from ${P[0]} to ${P[1]}.`,
+      ask:"When is the coupon rate for this period known?",
+      options:opts,
+      steps:[
+        `Compounded SOFR = [(1 + SOFR on day 1/360) &times; (1 + SOFR on day 2/360) &times; &hellip; &times; (1 + SOFR on the last day/360) &minus; 1] &times; 360/days.`,
+        `Each day's SOFR is published the next business day.`,
+        `So the coupon rate is known only when the period ends: it is paid in arrears.`
+      ]};
+  }},
+
+{ id:"k11", topic:"concept", also:["sofr"], name:"The duration of a SOFR FRN mid-period", gen(){
+    const m=pick([1,2]), r=pick([3.6,3.8,4.0,4.2,4.4]);
+    const d1=(1/365)/(1+r/100/360), dm=(m/12)/(1+r/100*m/12), dq=0.25/(1+r/100/4);
+    const opts=shuffle([
+      {html:`About ${d1.toFixed(4)}`, correct:true,
+       msg:`Right. With compounded SOFR, a new rate enters the coupon every day, so in effect the rate resets daily and the next reset is a day away: duration (1/365) / (1 + SOFR/360), whenever in the period you look.`},
+      {html:`About ${dm.toFixed(4)}`, correct:false,
+       msg:`That views the FRN as a zero maturing at the next <em>payment</em>, ${m} month${m>1?"s":""} away. For SOFR the next <em>reset</em> is tomorrow: every day's rate feeds the coupon.`},
+      {html:`About ${dq.toFixed(4)}`, correct:false,
+       msg:`That is a 3-month zero's duration, as if the rate were set at the start of the quarter. Compounded SOFR is set day by day, so the rate exposure is a day long.`},
+      {html:`Exactly 0`, correct:false,
+       msg:`Very close, but not zero: today's rate is fixed for one night, so there is one day of exposure, about 1/365.`}
+    ]);
+    return {mode:"choice",
+      text:`A FRN pays quarterly coupons at compounded SOFR in arrears, with zero spread. Its next coupon is paid
+            in ${m} month${m>1?"s":""}. SOFR is ${r.toFixed(2)}%.`,
+      ask:"What is its duration?",
+      options:opts,
+      steps:[
+        `A FRN can be viewed as a zero maturing at its next reset, so its duration is that zero's.`,
+        `Compounded SOFR takes in a new rate every day, so the next reset is a day away.`,
+        `Duration = (1/365) / (1 + ${r.toFixed(2)}%/360) = ${d1.toFixed(4)}, nearly zero.`
+      ]};
+  }},
+
+{ id:"k12", topic:"concept", name:"A negative spread", gen(){
+    /* Sample midterm 2 (2024 UG) Q "LIBOR - 0.25%: what does this tell us about the credit
+       quality of the borrower?", with the note's 6-month interbank rate in place of LIBOR. */
+    const d=pick([0.1,0.2,0.3]);
+    const opts=shuffle([
+      {html:`Its credit is better than that of the banks whose borrowing rate sets the benchmark`, correct:true,
+       msg:`Right. The spread pays for credit quality. The interbank rate is what banks pay to borrow; a borrower who pays ${d.toFixed(2)}% less than that is seen as safer than the banks.`},
+      {html:`Its credit is worse than the banks', and the negative spread makes up for it`, correct:false,
+       msg:`A weaker borrower pays a <em>wider</em> spread, not a negative one. Paying less than the banks means lenders see it as safer.`},
+      {html:`Nothing: the spread has nothing to do with the borrower`, correct:false,
+       msg:`The spread is there to adjust for the borrower's credit quality: better borrowers pay smaller spreads, weaker ones larger. That is what makes a negative one informative.`},
+      {html:`The issuer expects interest rates to fall`, correct:false,
+       msg:`Rate expectations move the benchmark, not the spread. The spread is about who is borrowing.`}
+    ]);
+    return {mode:"choice",
+      text:`A borrower issues a FRN paying the 6-month interbank rate &minus; ${d.toFixed(2)}%. The
+            interbank rate is the rate at which large banks borrow from each other.`,
+      ask:"What does the negative spread tell you about the borrower?",
+      options:opts,
+      steps:[
+        `The spread over the benchmark pays for the borrower's credit risk.`,
+        `The benchmark here is what banks pay.`,
+        `A borrower who pays less than the banks is seen as a better credit than the banks.`
+      ]};
+  }},
+
+{ id:"k13", topic:"concept", also:["reset"], name:"A Treasury FRN just after a reset", gen(){
+    /* Parked from Note 02 on 26 Aug 2026 (parked/n10_from_n02_s3.js); Anh: "more of a question
+       for the FRN lecture". Note 10 Section 5 now covers the Treasury FRN's weekly reset.   */
+    const idx=pick([3.60,3.80,4.20,4.40]), sp=pick([10,12,14,18]), rise=pick([40,50,60]);
+    const cpn=(idx+sp/100).toFixed(2);
+    const opts=shuffle([
+      {html:`A whisker below par: its coupon is stale, but only until next week's reset`, correct:true,
+       msg:`Right. The coupon is fixed until the next reset, so the price dips; but the next reset is a week away, so the dip is tiny. Its duration is about a week. A fixed-rate note of the same maturity is stuck with its coupon for years.`},
+      {html:`Exactly at par: a FRN always trades at par`, correct:false,
+       msg:`Only at a reset date. Between resets the coupon is fixed at a rate the market has moved past, so the price moves a little.`},
+      {html:`Well below par, like a fixed-rate note of the same maturity`, correct:false,
+       msg:`Far too much. The fixed-rate note has years of below-market coupons ahead of it; this FRN has a few days.`},
+      {html:`Above par, because its coupon will rise at the next reset`, correct:false,
+       msg:`The coming reset is why the price barely falls, not a reason for it to rise. A higher coupon at the next reset brings the price back to par; until then it pays less than the market now asks.`}
+    ]);
+    return {mode:"choice",
+      text:`A 2-year Treasury FRN resets weekly off the 13-week bill rate. Its coupon has just been set at
+            ${cpn}%: the ${idx.toFixed(2)}% bill rate plus a fixed ${sp} basis point spread. Right
+            after the reset, short-term rates jump by ${rise} basis points; the spread the market asks on
+            Treasury FRNs stays at ${sp} basis points.`,
+      ask:"Where does the FRN trade?",
+      options:opts,
+      steps:[
+        `The coupon is fixed at ${cpn}% until next week's reset; the market now wants about ${(idx+rise/100+sp/100).toFixed(2)}%.`,
+        `Until next week's reset, the FRN can be viewed essentially as a 1-week zero, so its price dips only a little.`,
+        `At the next reset the coupon catches up and the price returns to par.`
+      ]};
+  }},
+
+{ id:"k14", topic:"concept", also:["reset"], name:"Two shocks, one FRN", gen(){
+    /* Added 8 Oct 2026 from an outside review (its Q1): the benchmark risk and the spread risk of
+       one FRN, side by side. Worded by what happens at the NEXT reset (back to par, or not), which
+       the note teaches; the size of B's fall needs the whole remaining life priced, which it does not. */
+    const s=pick([1.0,1.6,2.0,2.4]), d=pick([1,2]), w=pick([1,2]);
+    const s2=(s+w).toFixed(2);
+    const opts=shuffle([
+      {html:`A: it dips a little below par, and is back at par at the next reset. B: it falls below par, and is still below par at the next reset`, correct:true,
+       msg:`Right. In A the coupon is fixed only until the next reset, so the FRN, which can be viewed as a 6-month zero, dips; at the reset the coupon catches up with the benchmark and the price is back at par. In B the coupon never catches up: the FRN pays ${s.toFixed(2)}% over the benchmark for its whole life while the market asks ${s2}%, so it stays below par, reset after reset.`},
+      {html:`A: no change, because the coupon floats. B: it falls below par, and is still below par at the next reset`, correct:false,
+       msg:`B is right, but A is not "no change". The coupon was set this morning and is fixed until the next reset, so for six months the FRN can be viewed as a 6-month zero, and its price dips when the benchmark jumps. It is back at par at the next reset.`},
+      {html:`A: it falls below par, and is still below par at the next reset. B: it dips a little below par, and is back at par at the next reset`, correct:false,
+       msg:`That is the wrong way round. A benchmark move is caught up at the next reset, because the coupon is the benchmark plus a fixed spread. A move in the spread the market asks is never caught up, because the FRN's spread is fixed at ${s.toFixed(2)}% for its life.`},
+      {html:`In both: it dips a little below par, and is back at par at the next reset`, correct:false,
+       msg:`A is right, but B is not. The coupon resets to the benchmark plus the <em>old</em> spread, ${s.toFixed(2)}%. With the market asking ${s2}%, the FRN pays too little at every reset, so it does not come back to par.`}
+    ]);
+    return {mode:"choice",
+      text:`A company's 3-year FRN pays the 6-month benchmark rate + ${s.toFixed(2)}%, semi-annually. Today is
+            a coupon reset date, and it trades at par. Consider two separate events, each just after today's
+            reset, and each of which persists. <b>A:</b> the 6-month benchmark rate rises by ${d} percentage point${d>1?"s":""};
+            the spread the market asks of the company stays at ${s.toFixed(2)}%. <b>B:</b> the benchmark rate
+            does not change, but the spread the market asks of the company rises to ${s2}%.`,
+      ask:"What happens to the FRN's price in each case?",
+      options:opts,
+      steps:[
+        `The intuition: the FRN pays a coupon of benchmark + ${s.toFixed(2)}%, and the market discounts it at benchmark + the spread it asks of the issuer. While that spread is also ${s.toFixed(2)}%, we build up the cash flows at the same rate as we penalize (pull back) them, so the FRN's value is reset to par on coupon reset dates.`,
+        `A: until the next reset the coupon is already fixed, so the FRN dips a little. At the next reset, the coupon becomes the new benchmark + ${s.toFixed(2)}%, and the market still discounts at benchmark + ${s.toFixed(2)}%. The two rates match again, so the FRN is back at par.`,
+        `B: at the next reset the coupon is still benchmark + ${s.toFixed(2)}% (that spread is fixed by contract), but the market now discounts it at benchmark + ${s2}%. The cash flows are built up at a lower rate than they are pulled back at, so the FRN trades below par at the next reset, and at every later one while the wider spread lasts.`
+      ]};
+  }},
+
+{ id:"k15", topic:"concept", name:"Issue a FRN or roll loans?", gen(){
+    /* Added 8 Oct 2026 from an outside review (its Q4): Section 4's second assumption from the
+       borrower's side. The expected direction is drawn, so the keyed answer flips with it.      */
+    const s=pick([1.0,1.6,2.0,2.4]), worse=pick([true,false]);
+    const S=s.toFixed(2);
+    const opts=shuffle(worse ? [
+      {html:`Issue the FRN: its ${S}% spread is fixed for its life, while new loans would cost more after a downgrade`, correct:true,
+       msg:`Right. The FRN's spread is agreed at issue for its whole life. Rolled loans are repriced every six months, so after a downgrade each new loan carries a wider spread. Expecting to get worse, lock the spread in.`},
+      {html:`Roll the loans: they reset every six months, so the rate keeps up with the company's credit`, correct:false,
+       msg:`Keeping up with its credit is exactly what the company does not want if that credit is getting worse: each new loan would carry a wider spread. The FRN fixes ${S}% for its life.`},
+      {html:`It makes no difference: the FRN's spread also rises after a downgrade`, correct:false,
+       msg:`It does not. The FRN's ${S}% spread was agreed at issue, for its whole life; only the benchmark part of its coupon changes.`},
+      {html:`It makes no difference: the FRN and the rolled loans pay the same whatever happens to its credit`, correct:false,
+       msg:`They pay the same only while the company's spread on new loans stays at ${S}%, which is one of the assumptions behind the par result. A downgrade breaks it: the loans get dearer and the FRN does not.`}
+    ] : [
+      {html:`Roll the loans: as its credit improves, each new loan carries a smaller spread, while the FRN would lock in ${S}%`, correct:true,
+       msg:`Right. Rolled loans are repriced every six months, so the company gets the benefit of a better rating as soon as it has one. The FRN's ${S}% is agreed at issue for its whole life.`},
+      {html:`Issue the FRN: it locks in a ${S}% spread for three years`, correct:false,
+       msg:`Locking in is what you want when you expect to get <em>worse</em>. Expecting to improve, the company would be stuck paying ${S}% while new loans got cheaper.`},
+      {html:`It makes no difference: the FRN's spread also falls after an upgrade`, correct:false,
+       msg:`It does not. The FRN's ${S}% spread was agreed at issue, for its whole life; only the benchmark part of its coupon changes.`},
+      {html:`It makes no difference: the FRN and the rolled loans pay the same whatever happens to its credit`, correct:false,
+       msg:`They pay the same only while the company's spread on new loans stays at ${S}%, which is one of the assumptions behind the par result. An upgrade breaks it: the loans get cheaper and the FRN does not.`}
+    ]);
+    return {mode:"choice",
+      text:`A company needs to borrow \$10 million for three years. It can issue a 3-year FRN paying the
+            6-month benchmark rate + ${S}%, or roll 6-month loans, which today also cost the 6-month
+            benchmark rate + ${S}%. Ignore transaction costs. The company expects its credit quality to
+            ${worse?"worsen":"improve"} over the next year.`,
+      ask:"Which should it choose, and why?",
+      options:opts,
+      steps:[
+        `The FRN's spread is fixed at issue for its whole life; a rolled loan's spread is reset every six months.`,
+        `So the two cost the same only while the company's spread on new loans stays at ${S}%.`,
+        worse ? `Expecting to get worse, the company locks the spread in: issue the FRN.` : `Expecting to improve, the company keeps the spread free: roll the loans.`
+      ]};
+  }},
+
+{ id:"e1", topic:"error", also:["between"], name:"Find the mistake — a FRN between resets", gen(){
+    /* Section 6. One fault planted in one of four steps; every later step works from what the
+       step before it printed (rule 21). Options are not shuffled.                          */
+    const F=1000, CMP={1:"compounded monthly",2:"compounded every two months",3:"compounded quarterly"};
+    const fault=pick(["coupon","spread","divisor","time"]);
+    const at={coupon:0, spread:1, divisor:2, time:3}[fault];
+    let m, b0, bm, s;
+    do {
+      m=pick([1,2,3]);
+      b0=pick(range(2.0,6.0,0.2)); bm=+(b0+pick([-0.6,-0.4,0.4,0.6])).toFixed(2);
+      s=pick([0.6,1.0,1.6,2.0,3.0]);
+    } while (bm<1 || (fault==="time" && m===3));          // at m = 3 the months since and to the reset coincide
+    const per=12/m;
+    const cUsed = fault==="coupon" ? bm+s : b0+s;                 // percent
+    const CF = F*(1+cUsed/200);
+    const yUsed = fault==="spread" ? bm : bm+s;                   // percent
+    const div = fault==="divisor" ? 2 : per;
+    const g = 1+yUsed/100/div;
+    const V = CF/g;
+    const T = fault==="time" ? (6-m)/12 : m/12;
+    const D = T/(1+yUsed/100/per);
+    const Tstr = fault==="time" ? `${6-m}/12` : `${m}/12`;
+    const st=[
+      `<b>Step 1.</b> At the next reset the FRN pays its coupon and is worth par. The coupon rate is ${fault==="coupon"?`today's ${m}-month rate plus the spread, ${bm.toFixed(2)}%`:`the 6-month rate at the last reset plus the spread, ${b0.toFixed(2)}%`} + ${s.toFixed(2)}% = ${cUsed.toFixed(2)}%, so it pays 1000 &times; (1 + ${cUsed.toFixed(2)}%/2) = ${CF.toFixed(2)}`,
+      `<b>Step 2.</b> Discount at ${fault==="spread"?`the ${m}-month benchmark rate, y = ${bm.toFixed(2)}%`:`the ${m}-month rate plus the spread, y = ${bm.toFixed(2)}% + ${s.toFixed(2)}% = ${yUsed.toFixed(2)}%`}, ${CMP[m]}`,
+      `<b>Step 3.</b> Value = ${CF.toFixed(2)} / (1 + ${yUsed.toFixed(2)}%/${div}) = ${V.toFixed(2)}`,
+      `<b>Step 4.</b> Duration = T / (1 + y/${per}), with T = ${Tstr}: ${Tstr} / (1 + ${yUsed.toFixed(2)}%/${per}) = ${D.toFixed(4)}`
+    ];
+    const why={
+      coupon:`The coupon paid at the next reset was fixed at the last reset, from the 6-month benchmark rate then, ${b0.toFixed(2)}%. Today's ${m}-month rate is for discounting, not for the coupon.`,
+      spread:`The issuer pays its spread on a ${m}-month loan too, so the discount rate is the ${m}-month benchmark rate <em>plus</em> ${s.toFixed(2)}%.`,
+      divisor:`The ${m}-month rate is ${CMP[m]}, so ${m} month${m>1?"s":""} is one period at y / ${per}. Dividing by 2 is for a six-month period.`,
+      time:`T is the time to the next reset, ${m} month${m>1?"s":""}, not the ${6-m} months since the last one.`
+    }[fault];
+    const fine=[
+      `Step 1 is fine: the coupon was set at the last reset, and at the next reset the FRN is worth par.`,
+      `Step 2 is fine: the issuer pays its spread on a ${m}-month loan too, so the discount rate is the ${m}-month rate plus the spread.`,
+      at<2 ? `Step 3 is fine on its own terms: it discounts what Step 1 gave it at the rate from Step 2, over one ${m}-month period. The mistake is earlier.`
+           : `Step 3 is fine: one ${m}-month period at y / ${per}.`,
+      at<3 ? `Step 4 is fine on its own terms: T is the ${m} month${m>1?"s":""} to the next reset, with the rate from Step 2. The mistake is earlier.`
+           : `Step 4 is fine.`
+    ];
+    const cR=b0+s, yR=bm+s, CFr=F*(1+cR/200), gR=1+yR/100/per;
+    return {mode:"choice",
+      text:`A 2-year FRN, face value \$1,000, pays semi-annual coupons at the 6-month benchmark rate +
+            ${s.toFixed(2)}%. At its last reset, ${6-m} months ago, the 6-month benchmark rate was
+            ${b0.toFixed(2)}% p.a., compounded semi-annually. Today the ${m}-month benchmark rate is
+            ${bm.toFixed(2)}% p.a., ${CMP[m]}, and the issuer still pays a spread of ${s.toFixed(2)}% on a
+            ${m}-month loan. A student values the FRN and finds its duration like this:`,
+      ask:"Which step introduces the mistake?",
+      options:st.map((html,q)=>({html, correct:q===at, msg:q===at?why:fine[q]})),
+      steps:[
+        `Payment at the next reset: 1000 &times; (1 + ${cR.toFixed(2)}%/2) = ${CFr.toFixed(2)}`,
+        `y = ${bm.toFixed(2)}% + ${s.toFixed(2)}% = ${yR.toFixed(2)}%, ${CMP[m]}`,
+        `Value = ${CFr.toFixed(2)} / (1 + ${yR.toFixed(2)}%/${per}) = <b>${(CFr/gR).toFixed(2)}</b>`,
+        `Duration = (${m}/12) / (1 + ${yR.toFixed(2)}%/${per}) = <b>${((m/12)/gR).toFixed(4)}</b>`
+      ]};
+  }},
+
+{ id:"e2", topic:"error", also:["inverse"], name:"Find the mistake — an inverse floater's duration", gen(){
+    /* Added 8 Oct 2026 (Anh, after outside review): e1's format on i2. One fault planted in one of
+       four steps; every later step works from what the step before it printed (rule 21), so each
+       figure is rounded as printed before it is used. Options are not shuffled. 1-year since 9 Oct 2026
+       (Anh: two cash flows, not four), with the fixed yield 1.6-2.4% from the replicating coupon so the
+       "weight by number of bonds" slip still clears the key by 1%; long formulas stacked.   */
+    const F=1000, r4=v=>+v.toFixed(4), r6=v=>+v.toFixed(6);
+    const fault=pick(["spread","annual","frnT","durAvg"]);
+    const at={spread:0, annual:1, frnT:2, durAvg:3}[fault];
+    let K, s, c, Y, b, cU, h, P, DD, Df, Dr, PI, wF, wR, shown, right;
+    const NP=2;                                                // 1-year: two half-years
+    const fix=(cpn,hh)=>{ let P=0, D=0; for(let t=1;t<=NP;t++){ const pv=(10*cpn/2+(t===NP?1000:0))/Math.pow(hh,t); P+=pv; D+=pv*(t/2)/hh; } return [r4(P),r4(D)]; };
+    // duration as a value-weighted average, every figure rounded as printed (Anh, 9 Oct 2026)
+    const wavg=(P,DD,Dr)=>{ const Df=r6(DD/P), PI=r4(2*P-F), wF=r6(2*P/PI), wR=r6(-F/PI); return [Df,PI,wF,wR,r4(wF*Df+wR*Dr)]; };
+    do {
+      K=pick([8,9,10,11,12]); s=pick([0.6,0.8,1.0,1.2,1.6,2.0,2.4,3.0]);
+      c=+((K+s)/2).toFixed(2);
+      Y=+(c+pick([-2.4,-2.0,-1.6,1.6,2.0,2.4])).toFixed(2);
+      b=+(Y-s-pick([0,0.2,0.4,0.6,0.8,1.0])).toFixed(2);
+      cU = fault==="spread" ? K/2 : c;
+      h = fault==="annual" ? 1+Y/100 : 1+Y/200;
+      [P,DD]=fix(cU,h);
+      Dr=r6((fault==="frnT"?1:0.5)/(1+(b+s)/200));
+      [Df,PI,wF,wR,shown]=wavg(P,DD,Dr);
+      if (fault==="durAvg") shown=r4(2*Df-Dr);
+      const [Pr,DDr]=fix(c,1+Y/200);
+      right=wavg(Pr,DDr,r6(0.5/(1+(b+s)/200)))[4];
+      var Pright=Pr;
+    /* For a 1-year bond, discounting at Y instead of Y/2 lowers the price and raises the fixed
+       bonds' weight, and the two nearly cancel in the final duration (under 0.5% apart on every
+       draw), so that fault is required to move the PRICE in Step 2 by 1% instead (9 Oct 2026). */
+    } while (Y<1 || b<1 || 2*P-F<=0 ||
+             (fault==="annual" ? Math.abs(P-Pright)<0.01*Pright : Math.abs(shown-right)<0.01*right));
+    const cf=10*cU/2, hS=h.toFixed(4);
+    const st=[
+      fault==="spread"
+        ? `<b>Step 1.</b> The inverse floater pays ${K}% &minus; benchmark, so it is two fixed bonds paying ${K}% / 2 = ${cU.toFixed(2)}% each, less one FRN`
+        : `<b>Step 1.</b> FRN + inverse floater pay (benchmark + ${s.toFixed(2)}%) + (${K}% &minus; benchmark) = ${(K+s).toFixed(2)}%, so the inverse floater is two fixed bonds paying ${cU.toFixed(2)}% each, less one FRN`,
+      `<b>Step 2.</b> Fixed bond, coupons of ${cf.toFixed(2)}, discounted at ${fault==="annual"?`${Y.toFixed(2)}% per half-year`:`${Y.toFixed(2)}%/2 per half-year`}:<br>${stack("Price P",termsP(cf,hS,NP),P.toFixed(4))}<br>${stack("Dollar duration \$\$D",termsDD(cf,hS,NP),DD.toFixed(4))}<br>Duration = \$\$D / P = ${DD.toFixed(4)} / ${P.toFixed(4)} = ${Df.toFixed(6)}`,
+      `<b>Step 3.</b> FRN: price \$1,000 on a reset date; viewed as a zero maturing ${fault==="frnT"?"at its 1-year maturity":"at the next reset"}, so its duration = ${fault==="frnT"?"1":"0.5"} / (1 + ${(b+s).toFixed(2)}%/2) = ${Dr.toFixed(6)}`,
+      fault==="durAvg"
+        ? `<b>Step 4.</b> Weight each duration by the number of bonds held, 2 for the fixed bonds and &minus;1 for the FRN:<br>Duration = 2 &times; ${Df.toFixed(6)} &minus; ${Dr.toFixed(6)} = ${shown.toFixed(4)}`
+        : `<b>Step 4.</b> Inverse floater price = 2 &times; ${P.toFixed(4)} &minus; 1000 = ${PI.toFixed(4)}<br>Weights:<br>&emsp;&emsp;fixed bonds: 2 &times; ${P.toFixed(4)} / ${PI.toFixed(4)} = ${wF.toFixed(6)}<br>&emsp;&emsp;FRN: &minus;1000 / ${PI.toFixed(4)} = &minus;${(-wR).toFixed(6)}<br>Duration = ${wF.toFixed(6)} &times; ${Df.toFixed(6)} &minus; ${(-wR).toFixed(6)} &times; ${Dr.toFixed(6)} = ${shown.toFixed(4)}`
+    ];
+    const why={
+      spread:`The FRN's spread belongs in the fixed coupon. FRN + inverse floater pay benchmark + ${s.toFixed(2)}% + ${K}% &minus; benchmark = ${(K+s).toFixed(2)}%, so each of the two fixed bonds pays ${c.toFixed(2)}%, not ${(K/2).toFixed(2)}%.`,
+      annual:`${Y.toFixed(2)}% is p.a., compounded semi-annually, so each half-year is discounted at ${Y.toFixed(2)}%/2 = ${(Y/2).toFixed(2)}%, not ${Y.toFixed(2)}%.`,
+      frnT:`A FRN can be viewed as a zero maturing at its next reset, six months away, not at its 1-year maturity: its duration is 0.5 / (1 + y/2).`,
+      durAvg:`The weights in a portfolio's duration are values, not numbers of bonds: each position's value over the inverse floater's price, 2 &times; ${P.toFixed(4)} &minus; 1000 = ${PI.toFixed(4)}. That gives the fixed bonds ${wF.toFixed(6)} and the FRN &minus;${(-wR).toFixed(6)}, which add to one; 2 and &minus;1 add to one too, but they are not value weights.`
+    }[fault];
+    const fine=[
+      `Step 1 is fine: FRN + inverse floater pay ${(K+s).toFixed(2)}% in all, which is two fixed bonds at ${c.toFixed(2)}%.`,
+      at<1 ? `Step 2 is fine on its own terms: it prices the bond Step 1 handed it, at ${Y.toFixed(2)}%/2 per half-year. The mistake is earlier.`
+           : `Step 2 is fine: each half-year is discounted at ${Y.toFixed(2)}%/2.`,
+      `Step 3 is fine: the FRN can be viewed as a zero maturing at the next reset, six months away.`,
+      at<3 ? `Step 4 is fine on its own terms: it weights each duration by the position's value over the inverse floater's price, using the figures before it. The mistake is earlier.`
+           : `Step 4 is fine.`
+    ];
+    return {mode:"choice",
+      text:`A borrower's FRNs pay the 6-month benchmark rate + ${s.toFixed(2)}%, and today, a coupon reset date,
+            the 6-month benchmark rate is ${b.toFixed(2)}% p.a. It also has a 1-year inverse floater, face value
+            \$1,000, paying semi-annual coupons at ${K}% &minus; the 6-month benchmark rate. Its 1-year fixed-rate
+            bonds yield ${Y.toFixed(2)}% p.a. All rates are compounded semi-annually. A student works out the
+            inverse floater's duration like this:`,
+      ask:"Which step introduces the mistake?",
+      options:st.map((html,q)=>({html, correct:q===at, msg:q===at?why:fine[q]})),
+      steps:[
+        `Inverse floater = two fixed bonds paying (${K}% + ${s.toFixed(2)}%)/2 = ${c.toFixed(2)}% &minus; one FRN`,
+        `Fixed bond at ${Y.toFixed(2)}%/2 per half-year; FRN viewed as a 6-month zero at ${(b+s).toFixed(2)}%`,
+        `Duration = value-weighted average: [2 &times; P(fixed) &times; D(fixed) &minus; 1000 &times; D(FRN)] / (2 &times; P(fixed) &minus; 1000) = <b>${right.toFixed(4)}</b>`
+      ]};
+  }}
+];
+
+const TOPICS = [
+  {key:"all", label:"Mixed"},
+  {key:"coupon", label:"Coupons"},
+  {key:"reset", label:"At a reset"},
+  {key:"between", label:"Between resets"},
+  {key:"inverse", label:"Inverse floaters"},
+  {key:"sofr", label:"SOFR"},
+  {key:"concept", label:"Reason it out"},
+  {key:"error", label:"Find the mistake"}
+];
+
+/* ----------------------------------------------------------------- state */
+let active = "all", current = null, tries = 0;
+let peeked = false, solved = false, tallied = false;  // tallied = already counted in `attempted`
+const stats = {att:0, first:0, streak:0, peek:0};
+
+const $ = id => document.getElementById(id);
+
+function buildTopics(){
+  const box = $("topics");
+  TOPICS.forEach(t=>{
+    const b = document.createElement("button");
+    b.className = "chip"; b.textContent = t.label;
+    b.setAttribute("aria-pressed", String(t.key===active));
+    b.onclick = ()=>{
+      active = t.key;
+      [...box.children].forEach(c=>c.setAttribute("aria-pressed","false"));
+      b.setAttribute("aria-pressed","true");
+      seqIdx = 0;                 // a new topic restarts the sequence
+      newQuestion();
+    };
+    box.appendChild(b);
+  });
+}
+
+const ALL_TEMPLATES = TEMPLATES.concat(CHOICE_TEMPLATES);
+
+/* A template's primary topic is `topic`; it may also list secondary topics in
+   `also`, so one item can appear under several chips. */
+function inTopic(t, key){
+  return t.topic === key || (Array.isArray(t.also) && t.also.includes(key));
+}
+
+/* ---- progress: distinct templates solved without opening the solution ---- */
+const PROG_KEY = "practice-progress:" + document.title;
+let mastered = new Set();
+try { mastered = new Set(JSON.parse(localStorage.getItem(PROG_KEY) || "[]")); }
+catch (e) { mastered = new Set(); }
+
+function saveProgress(){
+  try { localStorage.setItem(PROG_KEY, JSON.stringify([...mastered])); } catch (e) {}
+}
+function markMastered(id){
+  if (!id || mastered.has(id)) return;
+  mastered.add(id);
+  saveProgress();
+}
+
+/* Templates are drawn WITHOUT immediate repeats. Sampling with replacement
+   looks fine on the full bank, but a topic holding only three or four
+   templates repeats roughly one press in three, which reads as the button
+   being broken. Hold the most recent half of the pool out of the draw. */
+let recentIds = [];
+/* Questions seen this session, so the arrow keys can step back and forth through them. */
+let history = [], histIdx = -1;
+let navKey = false;      // true while an arrow key is doing the rendering
+let order = "shuffle";   // "shuffle" | "seq"
+let seqIdx = 0;
+
+function newQuestion(replay){
+  let q;
+  if (replay){ q = replay.q; }
+  else {
+  const pool = active==="all" ? ALL_TEMPLATES : ALL_TEMPLATES.filter(t=>inTopic(t,active));
+  let tpl;
+  if (order === "seq"){
+    /* walk the bank in order, wrapping at the end */
+    if (seqIdx >= pool.length) seqIdx = 0;
+    tpl = pool[seqIdx];
+    seqIdx = (seqIdx + 1) % pool.length;
+    $("seqPos").textContent = `${seqIdx === 0 ? pool.length : seqIdx} of ${pool.length}`;
+  } else {
+    const hold = Math.max(1, Math.floor(pool.length / 2));
+    let choices = pool.filter(t => !recentIds.slice(0, hold).includes(t.id));
+    if (!choices.length) choices = pool;        // pool of one, or all held out
+    tpl = pick(choices);
+    recentIds.unshift(tpl.id);
+    if (recentIds.length > 40) recentIds.length = 40;
+    $("seqPos").textContent = "";
+  }
+  q = tpl.gen();
+  q.name = tpl.name;
+  q.id   = tpl.id;
+  q.seqPos = $("seqPos").textContent;   // carried so stepping back shows its own position
+  if (q.mode !== "choice") q.distractors = usable(q.correct, q.cands, q.sep);
+  }
+  current = q;
+  if (replay){
+    tries = replay.tries; peeked = replay.peeked; solved = replay.solved; tallied = replay.tallied;
+  } else {
+    tries = 0; peeked = false; solved = false; tallied = false;
+    history = history.slice(0, histIdx + 1);           // a new draw discards anything ahead
+    history.push({q, tries:0, peeked:false, solved:false, tallied:false, fb:"", ans:""});
+    if (history.length > 50){ history.shift(); }
+    histIdx = history.length - 1;
+  }
+
+  const isChoice = q.mode === "choice";
+  $("qmeta").textContent = q.name;
+  $("qtext").innerHTML   = q.text;
+  $("qask").innerHTML    = q.ask;
+  /* Hide the input and Check individually, NOT the whole row -- the
+     "New question" button lives in that row and must stay reachable
+     on choice questions. */
+  $("ans").hidden   = isChoice;
+  $("check").hidden = isChoice;
+  $("opts").hidden     = !isChoice;
+  const box = $("opts");
+  box.innerHTML = "";              // always clear, even when the panel is hidden
+  if (isChoice){
+    q.options.forEach((o,k)=>{
+      const btn = document.createElement("button");
+      btn.className = "opt"; btn.innerHTML = o.html;
+      btn.onclick = () => pickOption(k);
+      box.appendChild(btn);
+    });
+  }
+  $("ans").value = "";
+  $("ans").placeholder = q.unit==="money" ? "e.g. 1234.56"
+                     : q.unit==="percent" ? "e.g. 12.34  (percent)"
+                     : "e.g. 18";
+  $("ans").disabled = false;
+  $("check").disabled = false;
+  $("fb").innerHTML = "";
+  $("steps").innerHTML = q.steps.map(s=>`<div>${s}</div>`).join("");
+  const d = $("soldetails"); d.hidden = false; d.open = false;
+  if (replay){
+    /* Put the question back exactly as it was left --- the feedback, what was typed, and
+       whether it had already been answered. The tallied/solved flags come back with it,
+       so revisiting a question never re-counts an attempt or re-awards mastery. */
+    $("fb").innerHTML = replay.fb || "";
+    $("ans").value    = replay.ans || "";
+    $("seqPos").textContent = q.seqPos || "";
+    if (isChoice && q.wrong){
+      [...$("opts").children].forEach((b,j)=>{
+        if (q.wrong.indexOf(j) >= 0){ b.classList.add("wrong"); b.disabled = true; }
+      });
+    }
+    if (solved || q.done){
+      if (isChoice){
+        [...$("opts").children].forEach((b,j)=>{ b.disabled = true;
+          if (q.options[j].correct) b.classList.add("right"); });
+      } else { $("ans").disabled = true; $("check").disabled = true; }
+    }
+    d.open = peeked || solved;
+  }
+  /* Arriving by arrow key must not park the cursor in the answer box: a restored answer
+     sitting there would swallow the next arrow press and strand the student. */
+  if (navKey) $("ans").blur();
+  else if (!isChoice && !$("ans").disabled) $("ans").focus();
+}
+
+function parseInput(raw){
+  const cleaned = raw.replace(/[$,%\s,]/g,"");
+  if (cleaned === "" ) return NaN;
+  return Number(cleaned);
+}
+
+function say(kind, title, body){
+  $("fb").innerHTML = `<div class="fb ${kind}"><strong>${title}</strong>${body}</div>`;
+}
+
+function pickOption(k){
+  const q = current;
+  if (q.done) return;
+  const o    = q.options[k];
+  const btns = [...$("opts").children];
+
+  tries++;
+  if (!tallied){ tallied = true; stats.att++; }
+
+  if (o.correct){
+    q.done = true; solved = true;
+    btns.forEach((b2,j)=>{ b2.disabled = true; if (q.options[j].correct) b2.classList.add("right"); });
+    if (peeked){
+      stats.streak = 0;
+      say("ok","Correct — but you read the solution first.",
+          "It still counts as attempted, just not toward first-try accuracy or your streak. " + o.msg);
+    } else {
+      stats.streak++;
+      if (tries === 1) stats.first++;
+      markMastered(q.id);
+      say("ok", tries===1 ? "Correct — first try." : "Correct.", o.msg);
+    }
+    $("soldetails").open = true;
+  } else {
+    stats.streak = 0;
+    btns[k].classList.add("wrong");
+    btns[k].disabled = true;
+    (q.wrong || (q.wrong = [])).push(k);   // remembered so a revisit keeps it eliminated
+    say("no","Not that one.", o.msg);
+  }
+  render();
+}
+
+function check(){
+  const raw = $("ans").value;
+  const parsed = parseInput(raw);
+  if (!Number.isFinite(parsed)){
+    say("hint","Enter a number","Type your answer as a number — you can include $ , or % and it will be ignored.");
+    return;
+  }
+  const q = current;
+  const val = q.unit==="percent" ? parsed/100 : parsed;
+  const TOL = q.tol || REL_MATCH;
+
+  /* Unit slips are formatting mistakes, not wrong answers, so they cost
+     neither an attempt nor first-try credit. Guarded so a genuinely
+     correct entry can never be mistaken for one. */
+  if (!near(val, q.correct, TOL)){
+    if (q.unit==="percent" && near(parsed, q.correct, TOL)){
+      say("hint","Right number, wrong units.",
+          `You entered <code>${raw}</code> as a decimal. This box wants a percent — enter <code>${(q.correct*100).toFixed(4).replace(/\.?0+$/,"")}</code> instead.`);
+      return;
+    }
+    if (near(val*100, q.correct, TOL) || near(val/100, q.correct, TOL)){
+      say("hint","Check your units.","Your figure is off by a factor of 100. Re-read what the box is asking for.");
+      return;
+    }
+  }
+
+  tries++;
+  if (!tallied){ tallied = true; stats.att++; }   // count each question once, right or wrong
+
+  if (near(val, q.correct, TOL)){
+    solved = true;
+    if (peeked){
+      stats.streak = 0;
+      say("ok","Correct — but you read the solution first.",
+          "That is a perfectly good way to learn, and it still counts as attempted. It does " +
+          "not count toward first-try accuracy or your streak, so those numbers stay honest. " +
+          "Try the next one before opening the solution.");
+    } else {
+      stats.streak++;
+      if (tries === 1) stats.first++;
+      markMastered(q.id);
+      say("ok","Correct.", tries===1 ? "First try — well done." : "Got there.");
+    }
+    $("check").disabled = true; $("ans").disabled = true;
+    $("soldetails").open = true;
+    render(); return;
+  }
+
+  stats.streak = 0;
+  const hit = q.distractors.find(d => near(val, d.val, TOL));
+  say("no", hit ? "Not quite — and I can see why." : "Not quite.",
+      hit ? hit.msg
+          : "That does not match any of the usual slips, so it may be an arithmetic error. Try again, or open the worked solution below.");
+  render();
+}
+
+function render(){
+  $("sAtt").textContent    = stats.att;
+  $("sFirst").textContent  = stats.first;
+  $("sAcc").textContent    = stats.att ? Math.round(stats.first/stats.att*100)+"%" : "—";
+  $("sStreak").textContent = stats.streak;
+  $("sPeek").textContent   = stats.peek;
+  const total = ALL_TEMPLATES.length;
+  $("pTotal").textContent  = total;
+  $("pDone").textContent   = mastered.size;
+  $("progfill").style.width = (total ? 100*mastered.size/total : 0).toFixed(1) + "%";
+}
+
+$("check").onclick = check;
+$("next").onclick  = () => newQuestion();   // arrow fn: never pass the click Event as `replay`
+
+/* ---- arrow keys: right for the next question, left for the previous one -------------
+   Ignored while the answer box is being typed in, where the arrows move the caret, and
+   ignored with a modifier held so the browser's own shortcuts still work.            */
+function snapshotQuestion(){
+  const h = history[histIdx];
+  if (!h) return;
+  h.tries = tries; h.peeked = peeked; h.solved = solved; h.tallied = tallied;
+  h.fb = $("fb").innerHTML; h.ans = $("ans").value;
+}
+function goBack(){
+  if (histIdx <= 0) return;
+  snapshotQuestion(); histIdx--;
+  navKey = true; newQuestion(history[histIdx]); navKey = false;
+}
+function goForward(){
+  snapshotQuestion();
+  navKey = true;
+  if (histIdx < history.length - 1){ histIdx++; newQuestion(history[histIdx]); }
+  else newQuestion();
+  navKey = false;
+}
+document.addEventListener("keydown", e => {
+  if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+  if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+  const t = e.target;
+  if (t && (t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+  /* Inside the answer box the arrows belong to the caret --- but only while it still has
+     somewhere to go. Once it sits at the end you are pressing toward, the press is free,
+     so a half-typed answer never traps a student in the field. */
+  if (t && t.tagName === "INPUT" && !t.disabled){
+    const at = t.selectionStart, to = t.selectionEnd, n = String(t.value).length;
+    if (at === null || at !== to) return;                       // a selection: leave it alone
+    if (e.key === "ArrowRight" ? at < n : at > 0) return;
+  }
+  e.preventDefault();
+  if (e.key === "ArrowRight") goForward(); else goBack();
+});
+$("ans").addEventListener("keydown", e=>{ if(e.key==="Enter" && !$("check").disabled) check(); });
+$("soldetails").addEventListener("toggle", ()=>{
+  if ($("soldetails").open && !solved && !peeked){
+    peeked = true;
+    stats.peek++;
+    if (!tallied){ tallied = true; stats.att++; }  // opening it counts as engaging with the question
+    render();
+  }
+});
+
+function setOrder(o){
+  order = o; seqIdx = 0;
+  $("mShuffle").setAttribute("aria-pressed", String(o === "shuffle"));
+  $("mSeq").setAttribute("aria-pressed",     String(o === "seq"));
+  newQuestion();
+}
+$("mShuffle").onclick = () => setOrder("shuffle");
+$("mSeq").onclick     = () => setOrder("seq");
+
+$("pReset").onclick = () => {
+  if (!mastered.size) return;
+  mastered.clear(); saveProgress(); render();
+};
+
+buildTopics();
+newQuestion();
+render();
+</script>
+</body>
+</html>
