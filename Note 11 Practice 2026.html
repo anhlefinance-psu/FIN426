@@ -1,0 +1,1549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Note 11 — Interest Rate Swaps: practice</title>
+<style>
+  :root{
+    --bg:#ffffff; --fg:#1a1a1a; --muted:#5f6672; --line:#e2e5ea;
+    --card:#f7f8fa; --accent:#00205b; --accent-fg:#ffffff;
+    --ok-bg:#e8f5ec; --ok-line:#2e7d47; --ok-fg:#17532c;
+    --no-bg:#fdeceb; --no-line:#c0392b; --no-fg:#8e2b20;
+    --hint-bg:#fff8e6; --hint-line:#b8860b; --hint-fg:#6b4e00;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#14161a; --fg:#e8eaed; --muted:#9aa3af; --line:#2b2f36;
+      --card:#1b1e24; --accent:#7f9cd4; --accent-fg:#0d1015;
+      --ok-bg:#132a1c; --ok-line:#4caf70; --ok-fg:#9fdcb4;
+      --no-bg:#2c1614; --no-line:#e06c5d; --no-fg:#f0a99f;
+      --hint-bg:#2a2313; --hint-line:#d4a017; --hint-fg:#e5c976;
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:0; background:var(--bg); color:var(--fg);
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  .wrap{max-width:760px; margin:0 auto; padding:24px 18px 64px}
+  header{border-bottom:1px solid var(--line); padding-bottom:14px; margin-bottom:20px}
+  h1{font-size:1.35rem; margin:0 0 4px}
+  .sub{color:var(--muted); font-size:.9rem}
+  .topics{display:flex; flex-wrap:wrap; gap:7px; margin:18px 0}
+  .chip{
+    border:1px solid var(--line); background:var(--card); color:var(--fg);
+    padding:6px 12px; border-radius:999px; cursor:pointer; font-size:.85rem;
+    font-family:inherit;
+  }
+  .chip[aria-pressed="true"]{background:var(--accent); color:var(--accent-fg); border-color:var(--accent)}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:10px;
+    padding:20px; margin-bottom:16px;
+  }
+  .qmeta{font-size:.75rem; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-bottom:10px}
+  .qtext{font-size:1.05rem; margin-bottom:6px}
+  .qtext b{font-variant-numeric:tabular-nums}
+  .ask{margin-top:14px; font-weight:600}
+  .row{display:flex; gap:9px; margin-top:14px; flex-wrap:wrap}
+  input[type=text]{
+    flex:1 1 190px; min-width:0; padding:11px 13px; font-size:1rem; font-family:inherit;
+    border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--fg);
+  }
+  input[type=text]:focus{outline:2px solid var(--accent); outline-offset:1px}
+  button{
+    padding:11px 17px; font-size:.95rem; font-family:inherit; border-radius:8px;
+    border:1px solid var(--accent); background:var(--accent); color:var(--accent-fg);
+    cursor:pointer; font-weight:600;
+  }
+  button.ghost{background:transparent; color:var(--fg); border-color:var(--line); font-weight:500}
+  button:disabled{opacity:.45; cursor:default}
+  .fb{border-radius:8px; padding:13px 15px; margin-top:15px; border-left:4px solid; font-size:.95rem}
+  .fb.ok{background:var(--ok-bg); border-color:var(--ok-line); color:var(--ok-fg)}
+  .fb.no{background:var(--no-bg); border-color:var(--no-line); color:var(--no-fg)}
+  .fb.hint{background:var(--hint-bg); border-color:var(--hint-line); color:var(--hint-fg)}
+  .fb strong{display:block; margin-bottom:3px}
+  details{margin-top:15px; border-top:1px solid var(--line); padding-top:13px}
+  summary{cursor:pointer; font-size:.9rem; color:var(--muted); font-weight:600}
+  .steps{margin-top:11px; font-size:.92rem}
+  .steps div{padding:5px 0; border-bottom:1px dashed var(--line)}
+  .steps div:last-child{border-bottom:none; font-weight:600}
+  code{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.88em;
+    background:var(--bg); padding:1px 5px; border-radius:4px; border:1px solid var(--line);
+  }
+  .opts{display:flex; flex-direction:column; gap:8px; margin-top:14px}
+  .opt{
+    text-align:left; padding:11px 14px; border:1px solid var(--line); background:var(--bg);
+    color:var(--fg); border-radius:8px; cursor:pointer; font-family:inherit;
+    font-size:.95rem; font-weight:400; line-height:1.55;
+  }
+  .opt:hover:not(:disabled){border-color:var(--accent)}
+  .opt.right{background:var(--ok-bg); border-color:var(--ok-line); border-width:2px}
+  .opt.wrong{background:var(--no-bg); border-color:var(--no-line)}
+  .opt:disabled{cursor:default}
+  .opt sup{font-size:.75em}
+  .stats{display:flex; gap:22px; font-size:.86rem; color:var(--muted); margin-top:22px;
+         border-top:1px solid var(--line); padding-top:14px; flex-wrap:wrap}
+  .stats b{color:var(--fg); font-variant-numeric:tabular-nums}
+  footer{margin-top:26px; font-size:.78rem; color:var(--muted); text-align:center}
+  /* The hidden attribute's UA rule is only [hidden]{display:none}, which loses
+     to author rules like .opts{display:flex} and .row{display:flex}. Without
+     this, hiding those panels silently does nothing. */
+  .modes{display:flex; gap:8px; align-items:center; margin-top:10px;
+         font-size:.84rem; color:var(--muted); flex-wrap:wrap}
+  .modes .chip{font-size:.84rem; padding:5px 12px}
+  .prog{margin-top:18px}
+  .progtop{display:flex; justify-content:space-between; align-items:baseline;
+           font-size:.86rem; color:var(--muted); margin-bottom:6px}
+  .progtop b{color:var(--fg); font-variant-numeric:tabular-nums}
+  .progbar{height:9px; border-radius:999px; background:var(--line); overflow:hidden}
+  .progfill{height:100%; width:0%; border-radius:999px; background:var(--accent);
+            transition:width .35s ease}
+  .progreset{background:none; border:none; color:var(--muted); font-size:.8rem;
+             padding:0; cursor:pointer; text-decoration:underline; font-weight:400}
+  .progreset:hover{color:var(--fg)}
+  .qhead{display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:10px}
+  .qhead .qmeta{margin-bottom:0}
+  .star{background:transparent; color:var(--muted); border:1px solid var(--line); border-radius:999px;
+        padding:3px 11px; font-size:.8rem; font-weight:500; white-space:nowrap; flex:none}
+  .star[aria-pressed="true"]{color:var(--hint-fg); background:var(--hint-bg); border-color:var(--hint-line)}
+  .star:hover{border-color:var(--accent)}
+  [hidden]{display:none !important}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Note 11 — Interest Rate Swaps: practice</h1>
+  <div class="sub">Answers are matched within 0.25% unless a question needs more precision.</div>
+</header>
+
+<div class="topics" id="topics" role="group" aria-label="Choose topics"></div>
+
+<div class="modes" id="modes" role="group" aria-label="Question order">
+  <span>Order</span>
+  <button class="chip" id="mShuffle" type="button" aria-pressed="true">Shuffle</button>
+  <button class="chip" id="mSeq" type="button" aria-pressed="false">In order</button>
+  <span id="seqPos"></span>
+</div>
+
+<div class="card" id="card">
+  <div class="qhead">
+    <div class="qmeta" id="qmeta">—</div>
+    <button class="star" id="star" type="button" aria-pressed="false"
+            title="Star this question to practise it again under the Starred chip">☆ Star</button>
+  </div>
+  <div class="qtext" id="qtext">Loading…</div>
+  <div class="ask" id="qask"></div>
+  <div class="opts" id="opts" hidden></div>
+  <div class="row" id="inputrow">
+    <input type="text" id="ans" autocomplete="off" inputmode="decimal"
+           placeholder="Your answer" aria-label="Your answer">
+    <button id="check">Check</button>
+    <button id="next" class="ghost">New question</button>
+  </div>
+  <div id="fb"></div>
+  <details id="soldetails" hidden>
+    <summary>Show the worked solution</summary>
+    <div class="steps" id="steps"></div>
+  </details>
+</div>
+
+<div class="prog">
+  <div class="progtop">
+    <span>Templates solved unaided <b id="pDone">0</b> of <b id="pTotal">0</b></span>
+    <button class="progreset" id="pReset" type="button">reset</button>
+  </div>
+  <div class="progbar"><div class="progfill" id="progfill"></div></div>
+</div>
+
+<div class="stats">
+  <span>Attempted <b id="sAtt">0</b></span>
+  <span>Correct first try <b id="sFirst">0</b></span>
+  <span>Accuracy <b id="sAcc">—</b></span>
+  <span>Streak <b id="sStreak">0</b></span>
+  <span>Solutions opened <b id="sPeek">0</b></span>
+</div>
+
+<footer>Numbers are randomised, so every attempt is different. Nothing you type leaves this page.<br>Use the &rarr; and &larr; arrow keys to move between questions.</footer>
+
+</div>
+
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ utils */
+const pick = a => a[Math.floor(Math.random()*a.length)];
+/* stepped range, e.g. range(0.04,0.24,0.0025) -> 81 rates instead of a list of 6 */
+const range = (lo,hi,step) => {
+  const out=[]; for(let v=lo; v<=hi+1e-9; v+=step) out.push(Number(v.toFixed(8)));
+  return out;
+};
+const ORD = n => n + (["th","st","nd","rd"][(n%100-n%10!=10)*(n%10<4)*(n%10)]||"th");
+const money = v => "$" + v.toLocaleString("en-US",{minimumFractionDigits:2, maximumFractionDigits:2});
+const pct   = (v,d=4) => (v*100).toFixed(d).replace(/\.?0+$/,"") + "%";
+const pctS  = (v,d=2) => (v*100).toFixed(d) + "%";
+const REL_SEP  = 0.01;    // distractors must sit >1% from everything else
+const REL_MATCH= 0.0025;  // student answer counts as a match within 0.25%
+
+const near = (a,b,tol) =>
+  Number.isFinite(a) && Number.isFinite(b) &&
+  Math.abs(a-b) / Math.max(Math.abs(a), Math.abs(b), 1e-12) < tol;
+
+/* Drop distractors too close to the answer (or to each other) to diagnose.
+   Templates about small effects (perpetuity timing) pass a tighter `sep`. */
+function usable(correct, cands, sep){
+  const s = sep || REL_SEP;
+  const kept = [];
+  for (const c of cands){
+    if (!Number.isFinite(c.val)) continue;
+    if (near(c.val, correct, s)) continue;
+    if (kept.some(k => near(k.val, c.val, s))) continue;
+    kept.push(c);
+  }
+  return kept;
+}
+
+/* ------------------------------------------------------------- templates */
+/* ---------------------------------------------------------------- Note 11 ---
+   Interest rate swaps: net cash flows, comparative advantage, valuation, dollar
+   duration, the swap rate, and hedging with swaps. Written 9 Oct 2026 to
+   _tools/TEMPLATE_RULES.md, on the note as restructured that day (6-month
+   benchmark rate set in advance; SOFR in Section 7). Sources: v3/r1/h1 adapt
+   HW_05 Question B (2025 UG: swap rate from zero yields, dollar durations of the
+   fixed bond, the FRN and the swap, immunising with swaps); c1 and h1 follow
+   the swaps lecture deck (CITI's swap cash flows; CITI's balance sheet). No exam
+   since 2019 has a numerical swap question; the conceptual ones feed n11_ch.js.  */
+const IND = "<br>&emsp;&emsp;";
+// a two-term sum stays on one line; a longer one is stacked, one term a line (Anh, 9 Oct 2026)
+const stack = (lhs,terms,rhs) => terms.length <= 2 ? `${lhs} = ${terms.join(" + ")} = ${rhs}`
+  : `${lhs} = ${terms[0]}` + terms.slice(1).map(x=>`${IND}+ ${x}`).join("") + `${IND}= ${rhs}`;
+const cf  = (K,k,n,F=1000) => F*K/200 + (k===n ? F : 0);                 // fixed bond's cash flow at half-year k
+const h   = z => 1 + z/200;                                              // z in percent
+const bondP  = (K,z,F=1000) => z.reduce((s,zk,i)=>s+cf(K,i+1,z.length,F)/Math.pow(h(zk),i+1),0);
+const bondDD = (K,z,F=1000) => z.reduce((s,zk,i)=>s+cf(K,i+1,z.length,F)/Math.pow(h(zk),i+1)*((i+1)/2)/h(zk),0);
+const bondDC = (K,z,F=1000) => z.reduce((s,zk,i)=>{const t=(i+1)/2; return s+cf(K,i+1,z.length,F)/Math.pow(h(zk),i+1)*(t*t+t/2)/Math.pow(h(zk),2);},0);
+const pvTerm = (K,z,k,F=1000) => `${cf(K,k,z.length,F).toFixed(2)}/${h(z[k-1]).toFixed(4)}${k>1?`<sup>${k}</sup>`:""}`;
+// a zero curve: four semi-annual zero yields, two decimals, rising or gently humped, all distinct
+const drawCurve = () => { const z0=pick(range(3.0,5.0,0.2)); const st=[pick([0.2,0.4,0.6]),pick([0.2,0.4]),pick([0,0.2])];
+  return [z0, z0+st[0], z0+st[0]+st[1], z0+st[0]+st[1]+st[2]].map(x=>+x.toFixed(2)); };
+// a signed figure with a true minus sign (22 Oct 2026 blind readers: no hyphen minus in worked solutions)
+const sg = (x,dp) => (x<0?"&minus;":"") + Math.abs(x).toFixed(dp);
+const sm = x => (x<0?"&minus;":"") + money(Math.abs(x));
+const whole = x => "$" + x.toLocaleString("en-US");                  // $1,000,000, not $1,000,000.00
+const farFrom = (correct,cands,sep) => cands.every(c=>Number.isFinite(c.val) && !near(c.val,correct,sep));
+
+const TEMPLATES = [{ id:"c1", topic:"cash", name:"A swap's net cash flow", gen(){
+    /* The note's Section 1 tables, from the long side (receive fixed, pay the benchmark set six
+       months earlier), on a realistic notional as in the lecture's CITI example.             */
+    let N, K, b, t, correct, cands;
+    do {
+      N=pick([1,2,5,10])*1e6;
+      K=pick(range(3.0,6.0,0.2));
+      b=[pick(range(2.6,5.4,0.2))];
+      for(let i=1;i<5;i++) b.push(+(b[i-1]+pick([-0.6,-0.4,-0.2,0.2,0.4,0.6])).toFixed(2));
+      t=pick([2,3,4]);                                          // the payment at time t/2
+      correct=0.5*N*(K-b[t-1])/100;
+      cands=[
+        {val:0.5*N*(K-b[t])/100, msg:`You used the benchmark rate on the payment date. The floating payment at time ${t/2} was set six months earlier, at time ${(t-1)/2}, from the rate then.`},
+        {val:N*(K-b[t-1])/100, msg:`That is a full year's interest. Both rates are p.a. and the payments are semi-annual, so each covers half a year.`},
+        {val:-correct, msg:`Right size, wrong sign. A is long the swap: it <em>receives</em> the fixed ${K.toFixed(2)}% and <em>pays</em> the floating rate, so its net flow is fixed minus floating.`},
+        {val:0.5*N*K/100, msg:`That is only the fixed payment A receives. A also pays the floating rate, and the two are netted.`}
+      ];
+    } while (b.some(x=>x<1) || Math.abs(K-b[t-1])<0.4 || !farFrom(correct,cands,REL_SEP));
+    const path=b.map((x,i)=>`time ${i/2}: <b>${x.toFixed(2)}%</b>`).join(", ");
+    return {
+      unit:"money",
+      text:`Firm A is long a 2-year interest rate swap with a notional face value of <b>${whole(N)}</b>: it
+            receives a fixed rate of <b>${K.toFixed(2)}%</b> p.a. and pays the 6-month benchmark rate, both
+            semi-annually. The 6-month benchmark rate (p.a., semi-annual compounding) turns out to be:
+            ${path}.`,
+      ask:`What is A's net cash flow from the swap at time ${t/2}? (Enter a negative number if A pays.)`,
+      correct,
+      cands,
+      steps:[
+        `The floating payment at time ${t/2} was set at time ${(t-1)/2}, when the benchmark rate was ${b[t-1].toFixed(2)}%`,
+        `A receives 0.5 &times; ${K.toFixed(2)}% &times; ${whole(N)} = ${money(0.5*N*K/100)} and pays 0.5 &times; ${b[t-1].toFixed(2)}% &times; ${whole(N)} = ${money(0.5*N*b[t-1]/100)}`,
+        `Net = ${money(0.5*N*K/100)} &minus; ${money(0.5*N*b[t-1]/100)} = <b>${correct<0?"&minus;"+money(-correct):money(correct)}</b>`
+      ]};
+  }},
+
+{ id:"a1", topic:"advantage", name:"Who gains what from a swap", gen(){
+    /* Section 2. A borrows floating, B borrows fixed, and they swap: A pays B a fixed k and B pays A
+       the benchmark + A's floating spread. B ends up paying benchmark + (fB - k + sA). Asked as B's
+       spread, since A's net (just k) would be read off the stem (rule 2).                     */
+    let fA, sA, fB, sB, k, correct, cands;
+    do {
+      fA=pick(range(4.0,6.0,0.2)); fB=+(fA+pick([0.6,0.8,1.0,1.2])).toFixed(2);
+      sA=pick([0.4,0.6,0.8,1.0]); sB=+(sA+pick([1.6,2.0,2.4,3.0])).toFixed(2);
+      k=+(fA-pick([0.2,0.4,0.6])).toFixed(2);
+      correct=(fB-k+sA)/100;                              // B's spread over the benchmark
+      cands=[
+        {val:(k-fB+sA)/100, msg:`Check the signs. B pays ${fB.toFixed(2)}% to its own lenders and <em>receives</em> ${k.toFixed(2)}% from A, so its fixed flows net to ${fB.toFixed(2)}% &minus; ${k.toFixed(2)}%.`},
+        {val:sA/100, msg:`That is only what B pays A. B still pays its own lenders ${fB.toFixed(2)}% fixed, and receives ${k.toFixed(2)}% from A: add those in.`},
+        {val:(fB+sA)/100, msg:`You left out the ${k.toFixed(2)}% fixed payment B receives from A, which offsets most of B's own fixed borrowing cost.`},
+        {val:(sB-sA)/100, msg:`That is the gap between the two firms' floating spreads, not B's spread after the swap.`}
+      ];
+    } while (correct*100 >= sB || !farFrom(correct,cands,REL_SEP));
+    return {
+      unit:"percent",
+      text:`Firm A can borrow at a fixed <b>${fA.toFixed(2)}%</b> p.a. or at the 6-month benchmark rate +
+            <b>${sA.toFixed(2)}%</b>. Firm B can borrow at a fixed <b>${fB.toFixed(2)}%</b> p.a. or at the
+            6-month benchmark rate + <b>${sB.toFixed(2)}%</b>. A borrows floating and B borrows fixed, each in its
+            own name. They then enter a swap in which A pays B a fixed <b>${k.toFixed(2)}%</b> and B pays A the
+            6-month benchmark rate + ${sA.toFixed(2)}%. All rates are on the same notional and the same dates.`,
+      ask:"After the swap, B effectively borrows at the 6-month benchmark rate plus what spread, in percent p.a.?",
+      correct,
+      cands,
+      steps:[
+        `B's flows: pay ${fB.toFixed(2)}% to its lenders, receive ${k.toFixed(2)}% from A, pay the benchmark + ${sA.toFixed(2)}% to A`,
+        `Net: &minus;${fB.toFixed(2)}% + ${k.toFixed(2)}% &minus; (benchmark + ${sA.toFixed(2)}%) = &minus;(benchmark + ${(fB-k+sA).toFixed(2)}%)`,
+        `B borrows at the benchmark + <b>${(100*correct).toFixed(2)}%</b>, below the ${sB.toFixed(2)}% it would pay borrowing floating directly`,
+        `(For comparison, A ends up paying ${k.toFixed(2)}% fixed, below the ${fA.toFixed(2)}% it would pay borrowing fixed directly.)`
+      ]};
+  }},
+
+{ id:"a2", topic:"advantage", name:"The total saving from a swap", gen(){
+    /* Section 2: the two firms' combined saving is the floating-spread gap minus the fixed-rate gap,
+       however they split it. The note's example: (3% - 1%) - (8% - 7%) = 1%.                 */
+    /* 10 Oct 2026 review: A's larger edge is in floating on some draws and in fixed on others, so
+       "A borrows floating" cannot be memorised. The firm that wants fixed is the one whose edge is
+       NOT in fixed, so that a swap is needed.
+       22 Oct 2026 (ChatGPT review, then the blind readers, who folded the separate k14 in here):
+       on about a quarter of the draws B is behind by the same amount in both markets, and the
+       saving is zero.                                                                           */
+    let fA, sA, fB, sB, mode, gF, gS, correct, cands;
+    do {
+      mode=pick(["float","float","fixed","zero"]);
+      fA=pick(range(4.0,6.0,0.2)); sA=pick([0.4,0.6,0.8,1.0]);
+      if(mode==="float"){ fB=+(fA+pick([0.6,0.8,1.0,1.2,1.4])).toFixed(2); sB=+(sA+pick([1.6,2.0,2.4,3.0])).toFixed(2); }
+      else if(mode==="fixed"){ fB=+(fA+pick([1.4,1.6,2.0,2.4])).toFixed(2); sB=+(sA+pick([0.4,0.6,0.8,1.0])).toFixed(2); }
+      else { const g=pick([0.8,1.0,1.2,1.4,1.6]); fB=+(fA+g).toFixed(2); sB=+(sA+g).toFixed(2); }
+      gF=+(fB-fA).toFixed(2); gS=+(sB-sA).toFixed(2);
+      correct= mode==="zero" ? 0 : Math.abs(gS-gF)/100;
+      const big=mode==="fixed"?"fixed":"floating", small=mode==="fixed"?"floating":"fixed";
+      cands = mode==="zero" ? [
+        {val:gF/100, msg:`That is A's edge over B, which is the same ${gF.toFixed(2)}% in both markets. A swap only shares out a <em>difference</em> between the two gaps, and here there is none.`},
+        {val:2*gF/100, msg:`The two gaps work against each other: the saving is one gap minus the other, here ${gS.toFixed(2)}% &minus; ${gF.toFixed(2)}% = 0.`},
+        {val:gF/200, msg:`That is half of A's edge, as if a saving were split equally. There is no saving to split: B pays ${gF.toFixed(2)}% more than A in both markets, so neither has a comparative advantage.`}
+      ] : [
+        {val:Math.max(gS,gF)/100, msg:`That is the gap in ${big} alone, where A's edge is larger. B is also behind in ${small}; the saving is the difference between the two gaps.`},
+        {val:Math.min(gS,gF)/100, msg:`That is the gap in ${small} alone. The saving is the difference between the two gaps.`},
+        {val:(gS+gF)/100, msg:`The two gaps work against each other: subtract the smaller gap from the larger.`},
+        {val:Math.abs(gS-gF)/200, msg:`That is half the saving, what each firm gets if they split it equally. The question asks for the total.`}
+      ];
+    } while (!farFrom(correct,cands,REL_SEP) || usable(correct,cands).length<3);
+    const Awants=mode==="fixed"?"floating":"fixed", Bwants=mode==="fixed"?"fixed":"floating";
+    /* Worked solution in Anh's form (22 Oct 2026): add up the two firms' interest costs both ways,
+       with r the 6-month benchmark rate, and take the difference. */
+    const want = mode==="fixed" ? [`(r + ${sA.toFixed(2)}%)`, `${fB.toFixed(2)}%`] : [`${fA.toFixed(2)}%`, `(r + ${sB.toFixed(2)}%)`];
+    const swap = mode==="fixed" ? [`${fA.toFixed(2)}%`, `(r + ${sB.toFixed(2)}%)`] : [`(r + ${sA.toFixed(2)}%)`, `${fB.toFixed(2)}%`];
+    const cW = mode==="fixed" ? sA+fB : fA+sB, cS = mode==="fixed" ? fA+sB : sA+fB;
+    return {
+      unit:"percent",
+      text:`Firm A can borrow at a fixed <b>${fA.toFixed(2)}%</b> p.a. or at the 6-month benchmark rate +
+            <b>${sA.toFixed(2)}%</b>. Firm B can borrow at a fixed <b>${fB.toFixed(2)}%</b> p.a. or at the
+            6-month benchmark rate + <b>${sB.toFixed(2)}%</b>. A wants to borrow ${Awants} and B wants to borrow
+            ${Bwants}, on the same notional and the same dates.`,
+      ask:"How much can a swap save the two firms together, in percent p.a.? (Enter 0 if it saves nothing.)",
+      correct,
+      cands,
+      steps:[
+        `Combined interest cost = A's cost + B's cost, with r the 6-month benchmark rate`,
+        `Each borrows the way it wants, directly: ${want[0]} + ${want[1]} = r + ${cW.toFixed(2)}%`,
+        `Each borrows the other way, and they swap: ${swap[0]} + ${swap[1]} = r + ${cS.toFixed(2)}%`,
+        mode==="zero"
+          ? `Combined saving = (r + ${cW.toFixed(2)}%) &minus; (r + ${cS.toFixed(2)}%) = <b>0</b>: the two ways cost the same, so a swap saves nothing`
+          : `Combined saving = (r + ${cW.toFixed(2)}%) &minus; (r + ${cS.toFixed(2)}%) = <b>${(100*correct).toFixed(2)}%</b> p.a., to be split between them by the swap's terms`
+      ]};
+  }},
+
+{ id:"v1", topic:"value", name:"Valuing a swap", gen(){
+    /* 22 Oct 2026 (Anh): the swap was entered some time ago and has 2 years left, so its fixed rate is no
+       longer the par rate and its value is not zero; "a 2-year swap" read as a new swap, worth zero.
+ Section 4: long swap = long the fixed rate bond, short the FRN; the FRN is at par at a reset
+       date. The note's example: 5% fixed on zero yields 5/6/7/8% gives 946.68 - 1000 = -53.32.  */
+    const F=1000;
+    let K, z, P, correct, cands;
+    do {
+      K=pick(range(3.0,6.0,0.2)); z=drawCurve();
+      P=bondP(K,z); correct=P-F;
+      const flat=bondP(K,[z[3],z[3],z[3],z[3]]);
+      const annual=z.reduce((s,zk,i)=>s+(F*K/100*0.5+(i===3?F:0))/Math.pow(1+zk/100,i+1),0);
+      const fullCoupon=z.reduce((s,zk,i)=>s+(F*K/100+(i===3?F:0))/Math.pow(h(zk),i+1),0);
+      cands=[
+        {val:F-P, msg:`Right size, wrong sign. Long the swap is long the fixed rate bond and short the FRN: value = bond &minus; FRN.`},
+        {val:flat-F, msg:`You discounted every cash flow at the 2-year zero yield. Each cash flow is discounted at the zero yield for its own date.`},
+        {val:annual-F, msg:`The zero yields are p.a. with semi-annual compounding: a cash flow n half-years away is divided by (1 + z/2)<sup>n</sup>.`},
+        {val:fullCoupon-F, msg:`Each semi-annual coupon is half the annual rate: ${K.toFixed(2)}%/2 &times; \$1000 = ${money(F*K/200)}.`}
+      ];
+    } while (Math.abs(correct)<5 || !farFrom(correct,cands,REL_SEP));
+    return {
+      unit:"money",
+      text:`Some time ago, A went long an interest rate swap with a notional face value of \$1000. It has <b>2 years</b>
+            left: A receives a fixed
+            <b>${K.toFixed(2)}%</b> p.a. and pays the 6-month benchmark rate, both semi-annually. Today is a
+            reset date. A and its counterparty, B, both borrow at the 6-month benchmark rate. The zero yields for
+            such borrowers (p.a., semi-annual compounding), the 6-month one being today's benchmark rate, are: 6 months <b>${z[0].toFixed(2)}%</b>,
+            12 months <b>${z[1].toFixed(2)}%</b>, 18 months <b>${z[2].toFixed(2)}%</b>, 24 months
+            <b>${z[3].toFixed(2)}%</b>.`,
+      ask:"What is the swap worth to A today? (Enter a negative number if it is a liability.)",
+      correct,
+      cands,
+      steps:[
+        `With 2 years left, long the swap = long a 2-year ${K.toFixed(2)}% fixed rate bond &minus; short a 2-year FRN, face \$1000 each. (Only a new swap, at the par rate, is worth zero.)`,
+        stack("Fixed rate bond: P",[1,2,3,4].map(k=>pvTerm(K,z,k)),P.toFixed(4)),
+        `The FRN is at par on a reset date: \$1000`,
+        `Swap value = ${P.toFixed(4)} &minus; 1000 = <b>${correct<0?"&minus;"+money(-correct):money(correct)}</b>`
+      ]};
+  }},
+
+{ id:"v2", topic:"value", also:["hedge"], name:"A swap's dollar duration", gen(){
+    /* Section 4: $D(swap) = $D(fixed bond) - $D(FRN), the FRN a 6-month zero worth par. The note's
+       example: 1752.406 - 487.805 = 1264.601. Under SOFR the FRN term is about zero (Section 7);
+       that is a distractor here, since the stem's floating leg is the 6-month benchmark.        */
+    const F=1000;
+    let K, z, DD, Dfrn, correct, cands;
+    do {
+      K=pick(range(3.0,6.0,0.2)); z=drawCurve();
+      DD=bondDD(K,z); Dfrn=F*0.5/h(z[0]);
+      correct=DD-Dfrn;
+      cands=[
+        {val:DD, msg:`That leaves out the FRN. With a floating leg that pays the 6-month benchmark rate, set in advance, the FRN can be viewed as a 6-month zero and has a dollar duration of 1000 &times; 0.5/(1 + z/2). (A SOFR floating leg would have almost none; this one does.)`},
+        {val:DD+Dfrn, msg:`Long the swap is <em>short</em> the FRN, so its dollar duration comes off.`},
+        {val:DD-F*2/h(z[3]), msg:`The FRN can be viewed as a zero maturing at the next reset, six months away, not at its 2-year maturity.`},
+        {val:z.reduce((s,zk,i)=>s+cf(K,i+1,4)/Math.pow(h(zk),i+1)*((i+1)/2),0)-F*0.5, msg:`Each cash flow's dollar duration is its present value &times; t/(1 + z/2), with z the zero yield for its date. Without the division by 1 + z/2 you get a Macaulay-style figure, not the dollar duration.`}
+      ];
+      /* MEASURED 9 Oct 2026 over the whole grid: discounting every cash flow at the 2-year rate moves
+         the dollar duration by 0.005%-0.041% (only the three small coupons change), so that slip
+         cannot be separated from the key here and is not offered. v1 tests it, where it matters. */
+    } while (!farFrom(correct,cands,REL_SEP));
+    const hs=k=>h(z[k-1]).toFixed(4);
+    return {
+      unit:"number",
+      text:`Some time ago, A went long an interest rate swap with a notional face value of \$1000. It has <b>2 years</b>
+            left: A receives a fixed
+            <b>${K.toFixed(2)}%</b> p.a. and pays the 6-month benchmark rate, both semi-annually. Today is a
+            reset date. A and its counterparty, B, both borrow at the 6-month benchmark rate. The zero yields for
+            such borrowers (p.a., semi-annual compounding), the 6-month one being today's benchmark rate, are: 6 months <b>${z[0].toFixed(2)}%</b>,
+            12 months <b>${z[1].toFixed(2)}%</b>, 18 months <b>${z[2].toFixed(2)}%</b>, 24 months
+            <b>${z[3].toFixed(2)}%</b>.`,
+      ask:"What is the swap's dollar duration, from A's side?",
+      correct,
+      cands,
+      steps:[
+        `\$\$D(swap) = \$\$D(fixed rate bond) &minus; \$\$D(FRN)`,
+        stack("Fixed rate bond: \$\$D",[1,2,3,4].map(k=>`${pvTerm(K,z,k)} &times; ${(k/2).toFixed(1)}/${hs(k)}`),DD.toFixed(4)),
+        `FRN: it can be viewed as a 6-month zero worth \$1000, so \$\$D = 1000 &times; 0.5/${hs(1)} = ${Dfrn.toFixed(4)}`,
+        `\$\$D(swap) = ${DD.toFixed(4)} &minus; ${Dfrn.toFixed(4)} = <b>${(+DD.toFixed(4) - +Dfrn.toFixed(4)).toFixed(4)}</b>`
+      ]};
+  }},
+
+{ id:"v3", topic:"value", also:["hedge"], name:"Estimating a swap's change in value", gen(){
+    /* 10 Oct 2026 review: dollar convexity was untested. Section 4's swap $D and $C, then Note 06's
+       estimate: change = -$D x dy + 0.5 x $C x dy^2. The stem gives the fixed leg's figures; the
+       student builds the FRN's (a 6-month zero worth $1000) and nets them.                      */
+    const F=1000;
+    let K, z, D, C, dy, Df, Cf, correct, cands;
+    do {
+      K=pick(range(3.0,6.0,0.2)); z=drawCurve(); dy=pick([-1.5,-1.0,1.0,1.5]);
+      D=+bondDD(K,z).toFixed(2); C=+bondDC(K,z).toFixed(2);
+      Df=+(F*0.5/h(z[0])).toFixed(4); Cf=+(F*(0.25+0.25)/Math.pow(h(z[0]),2)).toFixed(4);   // printed figures (rule 9)
+      const y=dy/100, sD=+(D-Df).toFixed(4), sC=+(C-Cf).toFixed(4);
+      correct=-sD*y+0.5*sC*y*y;
+      cands=[
+        {val:-D*y+0.5*C*y*y, msg:`That is the fixed leg alone. Long the swap is also short the FRN, whose dollar duration and convexity come off.`},
+        {val:-sD*y, msg:`That is the duration term only. Add the convexity term, 0.5 &times; \$\$convexity &times; (change in yields)<sup>2</sup>.`},
+        {val:-sD*y+sC*y*y, msg:`The convexity term carries a factor of 0.5: 0.5 &times; \$\$convexity &times; (change in yields)<sup>2</sup>.`},
+        {val:-(D+Df)*y+0.5*(C+Cf)*y*y, msg:`Long the swap is <em>short</em> the FRN: subtract its dollar duration and convexity, do not add them.`},
+        {val:sD*y+0.5*sC*y*y, msg:`Check the sign of the duration term: when yields ${dy>0?"rise":"fall"}, a long swap ${dy>0?"loses":"gains"}.`}
+      ];
+    } while (!farFrom(correct,cands,REL_SEP));
+    const hz=h(z[0]).toFixed(4);
+    return {
+      unit:"money",
+      text:`Some time ago, A went long an interest rate swap with a notional face value of \$1000. It has <b>2 years</b>
+            left: A receives a fixed <b>${K.toFixed(2)}%</b> p.a.
+            and pays the 6-month benchmark rate, both semi-annually. Today is a reset date, and today's 6-month
+            benchmark rate equals the 6-month zero yield, <b>${z[0].toFixed(2)}%</b> (p.a., semi-annual compounding).
+            The swap's fixed leg, a 2-year ${K.toFixed(2)}% fixed rate bond, has a dollar duration of <b>${D.toFixed(2)}</b> and
+            a dollar convexity of <b>${C.toFixed(2)}</b>. The other zero yields are not needed. All zero yields now ${dy>0?"rise":"fall"} by <b>${Math.abs(dy).toFixed(2)}%</b>.`,
+      ask:"Using dollar duration and dollar convexity, what is the estimated change in the value of A's swap? (Enter a negative number for a loss.)",
+      correct,
+      cands,
+      steps:[
+        `FRN: it can be viewed as a 6-month zero worth \$1000. \$\$duration = 1000 &times; 0.5/${hz} = ${Df.toFixed(4)}; \$\$convexity = 1000 &times; (0.5<sup>2</sup> + 0.5/2)/${hz}<sup>2</sup> = ${Cf.toFixed(4)}`,
+        `Swap: \$\$duration = ${D.toFixed(4)} &minus; ${Df.toFixed(4)} = ${(D-Df).toFixed(4)}; \$\$convexity = ${C.toFixed(4)} &minus; ${Cf.toFixed(4)} = ${(C-Cf).toFixed(4)}`,
+        `Change &asymp; &minus;\$\$duration &times; &Delta;y + 0.5 &times; \$\$convexity &times; (&Delta;y)<sup>2</sup> = &minus;${(D-Df).toFixed(4)} &times; (${sg(dy/100,3)}) + 0.5 &times; ${(C-Cf).toFixed(4)} &times; (${sg(dy/100,3)})<sup>2</sup> = <b>${sm(correct)}</b>`
+      ]};
+  }},
+
+{ id:"r1", topic:"rate", name:"The swap rate", gen(){
+    /* Section 5 and HW_05 Question B(a): the fixed rate that makes the swap worth zero is the par
+       yield, k = 2(1 - d_n)/(d_1 + ... + d_n) with d_k = 1/(1+z_k/2)^k. 1- or 2-year swaps.     */
+    let n, z, d, correct, cands;
+    do {
+      n=pick([2,4]); z=drawCurve().slice(0,n);
+      d=z.map((zk,i)=>Math.pow(h(zk),-(i+1)));
+      correct=2*(1-d[n-1])/d.reduce((s,x)=>s+x,0);
+      const ann=(1-Math.pow(1+z[n-1]/100,-n/2))/z.slice(0,n).reduce((s,zk,i)=>s+Math.pow(1+zk/100,-(i+1)/2),0);
+      cands=[
+        {val:z[n-1]/100, msg:`That is the ${n/2}-year zero yield. The swap rate is the coupon rate that puts a ${n/2}-year fixed rate bond at par, and its coupons arrive earlier, at lower zero yields.`},
+        {val:z.reduce((s,x)=>s+x,0)/n/100, msg:`A plain average of the zero yields is not the par yield. Set the fixed rate bond's price to \$100 and solve for k.`},
+        {val:(1-d[n-1])/d.reduce((s,x)=>s+x,0), msg:`The coupon is paid semi-annually, so each payment is k/2: solving 100 = (k/2) &times; (sum of discount factors) + 100 &times; d(last) gives k = 2(1 &minus; d)/(sum).`},
+        {val:2*ann, msg:`The zero yields compound semi-annually: the discount factor for n half-years is 1/(1 + z/2)<sup>n</sup>.`}
+      ];
+      /* The n-year zero yield sits just above the par rate on a rising curve, often under 1% away
+         (fixedshape: dropped on every draw at the house 1% separation). Since the key is matched
+         within 0.1% (tol), separation here is 0.3% (sep), and every slip must clear it, so the
+         student who answers with the zero yield is told why.                                     */
+    } while (usable(correct,cands,0.003).length<3 || cands.some(x=>near(x.val,correct,0.003)));
+    const df=d.map(x=>x.toFixed(6));
+    const lab=["6-month","12-month","18-month","24-month"];
+    return {
+      unit:"percent", tol:0.001, sep:0.003,
+      text:`The zero yields (p.a., semi-annual compounding) for borrowers who borrow at the 6-month
+            benchmark rate are: ${z.map((zk,i)=>`${lab[i]} <b>${zk.toFixed(2)}%</b>`).join(", ")}. Two such
+            borrowers agree a ${n/2}-year swap, fixed rate k% p.a. against the 6-month benchmark rate, both
+            semi-annual.`,
+      ask:"What fixed rate k makes the swap worth zero at inception, in percent p.a.? (Three decimals.)",
+      correct,
+      cands,
+      steps:[
+        `The FRN is at par at inception, so the swap is worth zero when a ${n/2}-year bond paying k% is at par`,
+        `Discount factors: ${z.map((zk,i)=>`d(${(i+1)/2}) = 1/${h(zk).toFixed(4)}${i>0?`<sup>${i+1}</sup>`:""} = ${df[i]}`).join("; ")}`,
+        `Set the bond on \$100 face at par: 100 = (k/2) &times; (${df.join(" + ")}) + 100 &times; ${df[n-1]}`,
+        `k = 2 &times; (100 &minus; 100 &times; ${df[n-1]}) / ${df.reduce((s,x)=>s+(+x),0).toFixed(6)} = <b>${(100*correct).toFixed(3)}%</b>`
+      ]};
+  }},
+
+{ id:"r2", topic:"rate", name:"A zero yield from a swap rate", gen(){
+    /* Section 5: "if we cannot observe the zero yield ... but we know the swap rate ... we can also
+       solve for it". The swap rate is shown with two decimals, even second digit (rule 7), and the
+       key is solved from the numbers shown (rule 9): d_n = (100 - (k/2)(d_1+...+d_{n-1}))/(100 + k/2). */
+    let n, z, k, S, dn, correct, cands;
+    const yOf = d => 2*(Math.pow(d,-1/n)-1);
+    do {
+      n=pick([2,4]); z=drawCurve().slice(0,n);
+      const d=z.map((zk,i)=>Math.pow(h(zk),-(i+1)));
+      k=Math.round(2*(1-d[n-1])/d.reduce((s,x)=>s+x,0)*100*50)/50;      // percent, step 0.02
+      S=d.slice(0,n-1).reduce((s,x)=>s+x,0);
+      dn=(100-k/2*S)/(100+k/2);
+      correct=yOf(dn);
+      cands=[
+        {val:k/100, msg:`That is the swap rate itself, a par yield. The zero yield for the last date is what is left once the earlier coupons have been priced with their own zero yields.`},
+        {val:yOf((100-k/2*S)/100), msg:`The last payment is the face value <em>plus</em> the last coupon: 100 + k/2, not 100.`},
+        {val:yOf((100-k*S)/(100+k)), msg:`The coupons are semi-annual: each is k/2, not k.`},
+        {val:Math.pow(dn,-2/n)-1, msg:`The zero yield is quoted with semi-annual compounding: d = 1/(1 + y/2)<sup>${n}</sup>, so y = 2 &times; (d<sup>&minus;1/${n}</sup> &minus; 1).`}
+      ];
+    } while (usable(correct,cands,0.003).length<3 || cands.some(x=>near(x.val,correct,0.003)));
+    const lab=["6-month","12-month","18-month","24-month"];
+    const ds=z.slice(0,n-1).map((zk,i)=>Math.pow(h(zk),-(i+1)).toFixed(6));
+    return {
+      unit:"percent", tol:0.001, sep:0.003,
+      text:`The zero yields (p.a., semi-annual compounding) for borrowers who borrow at the 6-month benchmark rate
+            are: ${z.slice(0,n-1).map((zk,i)=>`${lab[i]} <b>${zk.toFixed(2)}%</b>`).join(", ")}. The ${lab[n-1]} zero yield cannot be
+            observed, but the ${n/2}-year swap rate, fixed against the 6-month benchmark rate with semi-annual payments,
+            is <b>${k.toFixed(2)}%</b> p.a.`,
+      ask:`What is the ${lab[n-1]} zero yield, in percent p.a. with semi-annual compounding? (Three decimals.)`,
+      correct,
+      cands,
+      steps:[
+        `The swap rate is the par yield: a ${n/2}-year bond paying ${k.toFixed(2)}% semi-annually is worth \$100`,
+        `Known discount factors: ${ds.map((x,i)=>`d(${(i+1)/2}) = 1/${h(z[i]).toFixed(4)}${i>0?`<sup>${i+1}</sup>`:""} = ${x}`).join("; ")}`,
+        `100 = ${(k/2).toFixed(2)} &times; ${n>2?`(${ds.join(" + ")})`:ds[0]} + ${(100+k/2).toFixed(2)} &times; d(${n/2}), so d(${n/2}) = ${dn.toFixed(6)}`,
+        `y = 2 &times; (${dn.toFixed(6)}<sup>&minus;1/${n}</sup> &minus; 1) = <b>${(100*correct).toFixed(3)}%</b>`
+      ]};
+  }},
+
+{ id:"h1", topic:"hedge", also:["sofr"], name:"Hedging a balance sheet with swaps", gen(){
+    /* HW_05 Question B(d) and the lecture's CITI balance sheet: set the combined dollar duration
+       to zero. Each swap is on $100 notional; its fixed leg's dollar duration is given (computing it
+       is v2). The answer is a signed notional: negative = short (Section 6).
+       22 Oct 2026 (claude.ai review, then the blind readers, who folded the separate h2 in here):
+       half the draws use SOFR swaps, whose floating leg has about zero dollar duration (Section 7);
+       the student must know that, as no figure is given. Half the draws are a pension fund whose
+       liabilities carry more dollar duration than its assets, so the answer is sometimes positive. */
+    let inst, sofr, A, DA, L, DL, T, Df, Dr, ds, net, correct, cands;
+    do {
+      inst=pick(["bank","pension"]); sofr=pick([false,true]);
+      // third sitting: the durations overlap, so the sign is not given away by "bank" or "pension fund"
+      if(inst==="bank"){ A=pick([50,80,100,120,150]); L=+(A*pick([0.8,0.85,0.9])).toFixed(0); DA=pick([2,3,4,5,6,7,8]); DL=pick([1,2,3,4,5]); }
+      else             { A=pick([50,80,100,120,150]); L=+(A*pick([0.8,0.9,1.0,1.1])).toFixed(0); DA=pick([6,7,8,9,10]); DL=pick([6,8,10,12,14]); }
+      T=pick([5,7,10]);
+      Df=pick({5:[440.6,448.2,452.8],7:[598.4,606.2,611.8],10:[806.4,818.2,826.6]}[T]);   // $D of the fixed leg per $100 notional
+      Dr=sofr ? 0 : +(100*0.5/h(pick([3.2,3.6,4.0,4.4,4.8]))).toFixed(1);                // the FRN leg: a 6-month zero, or ~0 for SOFR
+      ds=Df-Dr; net=A*DA-L*DL;
+      correct=-net*100/ds;                                   // notional in $ millions (each swap's $D is per $100)
+      const big = net>0 ? A*DA : -L*DL, side = net>0 ? "assets" : "liabilities";
+      cands=[
+        {val:-correct, msg:`Right size, wrong direction. ${net>0?"The assets have more dollar duration than the liabilities, so it must <em>shed</em> dollar duration: short (pay-fixed) swaps, which have negative dollar duration.":"The liabilities have more dollar duration than the assets, so it must <em>add</em> dollar duration: long (receive-fixed) swaps."}`},
+        {val:-(A-L)*DA*100/ds, msg:`You netted the values and used one duration for both. The assets and liabilities have different durations: net dollar duration = \$${A}m &times; ${DA} &minus; \$${L}m &times; ${DL}.`},
+        {val:-big*100/ds, msg:`You hedged the ${side} only. The other side's dollar duration offsets part of it, so only the difference needs hedging.`}
+      ];
+      if(!sofr) cands.push({val:-net*100/(Df+Dr), msg:`A long swap is <em>short</em> the FRN, so the FRN's dollar duration comes off: ${Df.toFixed(1)} &minus; ${Dr.toFixed(1)}, not plus.`});
+      if(!sofr) cands.push({val:-net*100/Df, msg:`You used the fixed leg's dollar duration alone. A swap is long the fixed leg and short the FRN: its dollar duration is ${Df.toFixed(1)} &minus; ${Dr.toFixed(1)}.`});
+    } while (Math.abs(net)<20 || !farFrom(correct,cands,REL_SEP) || usable(correct,cands).length<3);
+    const who = inst==="bank" ? "A bank" : "A pension fund";
+    const legs = sofr
+      ? `It uses ${T}-year SOFR swaps, whose floating leg pays compounded SOFR in arrears. Per \$100 of notional, the fixed leg has a dollar duration of <b>${Df.toFixed(1)}</b>.`
+      : `It uses ${T}-year swaps against the 6-month benchmark rate. On a reset date, per \$100 of notional, the fixed leg has a dollar duration of <b>${Df.toFixed(1)}</b> and the floating leg (the FRN) <b>${Dr.toFixed(1)}</b>.`;
+    return {
+      unit:"number", tol:0.002, dp:2,
+      text:`${who}'s assets are worth <b>\$${A} million</b> with a modified duration of <b>${DA}</b>; its liabilities are
+            worth <b>\$${L} million</b> with a modified duration of <b>${DL}</b>. It can go long swaps (receive fixed) or short
+            swaps (pay fixed). ${legs} Ignore convexity.`,
+      ask:"What notional of swaps, in \$ millions, makes its net dollar duration zero? (Enter a negative number if it should short them.)",
+      correct,
+      cands,
+      steps:[
+        `Net dollar duration now, in \$ millions = assets &times; duration &minus; liabilities &times; duration = ${A} &times; ${DA} &minus; ${L} &times; ${DL} = ${sg(net,0)}`,
+        sofr ? `A SOFR floating leg's dollar duration is about zero, so a long swap's \$\$D per \$100 of notional = ${Df.toFixed(1)} &minus; 0 = ${Df.toFixed(1)}, i.e. ${(ds/100).toFixed(3)} per \$1`
+             : `Long swap, per \$100 of notional: \$\$D = \$\$D(fixed leg) &minus; \$\$D(FRN) = ${Df.toFixed(1)} &minus; ${Dr.toFixed(1)} = ${ds.toFixed(1)}, i.e. ${(ds/100).toFixed(3)} per \$1`,
+        `With N in \$ millions of notional: ${sg(net,0)} + N &times; ${(ds/100).toFixed(3)} = 0, so N = ${sg(-net,0)} / ${(ds/100).toFixed(3)} = <b>${sg(correct,2)}</b>`,
+        correct<0 ? `Negative: short the swaps (pay fixed, receive floating), which takes dollar duration off.` : `Positive: go long the swaps (receive fixed, pay floating), which adds dollar duration.`
+      ]};
+  }}
+
+];
+
+/* ======================= CHOICE-MODE ITEMS ==============================
+   Auto-graded by which option is clicked, not by a typed number.
+     topic "error"   — a worked solution with one planted mistake
+     topic "concept" — reason about the direction of an effect, no arithmetic
+   Directional items shuffle their own options so position carries no
+   information; spot-the-error items must stay in step order.            */
+
+function shuffle(a){
+  const out = a.slice();
+  for (let i=out.length-1; i>0; i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [out[i],out[j]] = [out[j],out[i]];
+  }
+  return out;
+}
+
+const CHOICE_TEMPLATES = [{ id:"k2", topic:"concept", also:["rate"], name:"Why the swap rate is a par yield", gen(){
+    const n=pick([2,3,5,10]);
+    const opts=shuffle([
+      {html:`Because the FRN is at par, so the fixed leg must be too`, correct:true,
+       msg:`Right. The swap is worth the fixed rate bond minus the FRN, and both parties want it worth zero at the start. The FRN is at par on a reset date, so the fixed rate bond must be at par too, and the coupon that puts a bond at par is the par yield.`},
+      {html:`Because the fixed leg must earn the ${n}-year zero yield`, correct:false,
+       msg:`A ${n}-year zero yield prices a single payment in ${n} years. The swap's fixed leg pays coupons all along the way, so the rate that makes it worth par is the par yield, not the ${n}-year zero yield.`},
+      {html:`Because the fixed leg must earn today's 6-month benchmark rate`, correct:false,
+       msg:`Today's 6-month rate only fixes the first floating payment. The fixed rate has to be fair over the swap's whole ${n}-year life.`},
+      {html:`Because the fixed leg must earn the average of the zero yields`, correct:false,
+       msg:`A plain average weights every date equally. The fixed rate has to put the fixed rate bond at par, and the bond's value sits mostly in its final payment, so the rate is the par yield, not an average.`}
+    ]);
+    return {mode:"choice",
+      text:`Two parties agree a new ${n}-year swap, fixed against the 6-month benchmark rate, and set the fixed
+            rate so that the swap is worth zero to both of them at the start.`,
+      ask:"Why is that fixed rate the par yield for a maturity of " + n + " years?",
+      options:opts,
+      steps:[
+        `Swap value = value of the fixed rate bond &minus; value of the FRN.`,
+        `At inception, a reset date, the FRN is worth par.`,
+        `So the swap is worth zero only if the fixed rate bond is at par: its coupon rate is the par yield.`
+      ]};
+  }},
+
+{ id:"k3", topic:"concept", also:["advantage"], name:"Where each firm should borrow", gen(){
+    /* Worked solution in Anh's form (22 Oct 2026): compare the two firms' total cost under each arrangement.
+       Section 2. A has the absolute advantage in both markets. 10 Oct 2026 review: its larger edge is
+       in floating on some draws and in fixed on others, so "A borrows floating" cannot be memorised;
+       each firm wants the kind of rate it does NOT have the comparative advantage in.
+       22 Oct 2026 blind readers: the four options now share one shape (no reason clauses), a 2x2 of
+       what A borrows x what B borrows, so the key is not the odd one out.                          */
+    const flip=pick([false,true]);
+    const fA=pick([5.0,5.4,6.0,6.6]), sA=pick([0.4,0.8,1.0]);
+    const dF=flip?pick([1.4,1.6,2.0]):pick([0.6,0.8,1.0]), dS=flip?pick([0.4,0.6,0.8]):pick([1.6,2.0,2.4,3.0]);
+    const fB=+(fA+dF).toFixed(2), sB=+(sA+dS).toFixed(2);
+    const big=flip?"fixed":"floating", small=flip?"floating":"fixed";
+    const eBig=Math.max(dF,dS), eSmall=Math.min(dF,dS);
+    const opts=shuffle([
+      {html:`A borrows ${big}; B borrows ${small}`, correct:true,
+       msg:`Right. A pays less in both markets, but its edge is bigger in ${big} (${eBig.toFixed(2)}% against ${eSmall.toFixed(2)}%): that is A's comparative advantage. B's is in ${small}, where it is least behind. Each borrows there and the swap turns the loans into what each wants; together they save ${(eBig-eSmall).toFixed(2)}%.`},
+      {html:`A borrows ${small}; B borrows ${big}`, correct:false,
+       msg:`That is the wrong way round. A's edge is larger in ${big}, so that is where A should borrow; B is least behind in ${small}. Borrowing the other way leaves less than nothing to share.`},
+      {html:`A borrows ${big}; B borrows ${big}`, correct:false,
+       msg:`B's comparative advantage is in ${small}, where it is least behind A (${eSmall.toFixed(2)}% against ${eBig.toFixed(2)}% in ${big}). If both borrow ${big}, there is nothing for a swap to share.`},
+      {html:`A borrows ${small}; B borrows ${small}`, correct:false,
+       msg:`A's edge is larger in ${big}, so that is where A should borrow. Absolute advantage is not what matters: the gap between the two edges is what the swap shares out.`}
+    ]);
+    return {mode:"choice",
+      text:`Firm A can borrow at a fixed ${fA.toFixed(2)}% or at the 6-month benchmark rate + ${sA.toFixed(2)}%. Firm B
+            can borrow at a fixed ${fB.toFixed(2)}% or at the 6-month benchmark rate + ${sB.toFixed(2)}%. They plan to
+            borrow in their own names and then swap, so as to share a saving.`,
+      ask:"Where should each firm borrow in its own name?",
+      options:opts,
+      steps:[
+        `Combined interest cost = A's cost + B's cost, with r the 6-month benchmark rate`,
+        `A borrows fixed, B borrows floating: ${fA.toFixed(2)}% + (r + ${sB.toFixed(2)}%) = r + ${(fA+sB).toFixed(2)}%`,
+        `A borrows floating, B borrows fixed: (r + ${sA.toFixed(2)}%) + ${fB.toFixed(2)}% = r + ${(sA+fB).toFixed(2)}%`,
+        `The cheaper way is <b>A ${big}, B ${small}</b>: it costs ${Math.abs((fA+sB)-(sA+fB)).toFixed(2)}% less in total, a saving the swap then shares between them`
+      ]};
+  }},
+
+{ id:"k4", topic:"concept", also:["advantage"], name:"Is the swap saving a free lunch?", gen(){
+    const opts=shuffle([
+      {html:`No: each firm now depends on the other making its swap payments`, correct:true,
+       msg:`Right. Borrowing directly, neither firm depends on anyone paying it. Through the swap, each needs the other to keep paying; if one defaults, the saving is gone. The saving is partly pay for that counterparty risk, which is why related firms, a parent and its subsidiary, who know each other well, are best placed to take it.`},
+      {html:`Yes: comparative advantage creates value out of nothing`, correct:false,
+       msg:`If it were risk-free, competition would compete it away. The saving is partly compensation for the counterparty risk each firm takes on.`},
+      {html:`No: the swap raises each firm's interest rate risk`, correct:false,
+       msg:`Each firm ends up with the kind of rate it wanted. What the swap adds is not interest rate risk but counterparty default risk.`},
+      {html:`No: all of the saving goes to the banks who arrange the swap`, correct:false,
+       msg:`In the note's example, A and B swap with each other and keep the saving. What they give up for it is safety: each now bears the other's default risk.`}
+    ]);
+    return {mode:"choice",
+      text:`Using comparative advantage and a swap, two firms each borrow more cheaply than they could directly:
+            one ends up below its fixed rate, the other below its floating spread.`,
+      ask:"Is this a free lunch?",
+      options:opts,
+      steps:[
+        `Borrowing directly, a firm owes its lenders and depends on no one.`,
+        `Through the swap, each firm also needs the other to keep making its swap payments.`,
+        `The saving is partly the reward for bearing that counterparty default risk.`
+      ]};
+  }},
+
+{ id:"k5", topic:"concept", also:["hedge"], name:"Swapping fixed for floating, or floating for fixed", gen(){
+    /* Sections 3 and 6 in one template (22 Oct 2026 second blind sitting: k5 and k13 were mirror
+       images, and each had a key that never changed). On half the draws a firm with a fixed rate bond
+       wants floating (long swap; all-in = benchmark + coupon - swap rate); on the other half a firm
+       with a floating loan wants fixed (short swap; all-in = swap rate + its spread). The swap is
+       quoted against the benchmark with no spread, so the arithmetic is a real step. 2x2 options: side x rate. */
+    const toFloat=pick([true,false]), n=pick([3,5,7]);
+    const K=pick([3.8,4.2,4.6,5.0]), f=x=>x.toFixed(2);
+    let html, opts, steps, text, ask;
+    if (toFloat) {
+      const c=+(K+pick([0.4,0.6,0.8,1.2])).toFixed(2), m=+(c-K).toFixed(2);
+      opts=[
+        {html:`Go long the swap; it then pays the benchmark + ${f(m)}%`, correct:true,
+         msg:`Right. It pays ${f(c)}% to its bondholders, receives ${f(K)}% and pays the benchmark in the swap: net, the benchmark + ${f(c)}% &minus; ${f(K)}% = the benchmark + ${f(m)}%. Receiving fixed is long the swap.`},
+        {html:`Go short the swap; it then pays the benchmark + ${f(m)}%`, correct:false,
+         msg:`Short means paying fixed in the swap. The firm would then pay fixed twice, to its bondholders and in the swap, and receive the floating rate: the opposite of what it wants.`},
+        {html:`Go long the swap; it then pays the benchmark + ${f(c)}%`, correct:false,
+         msg:`The long side is right, but you left out the ${f(K)}% the firm receives in the swap, which offsets most of its ${f(c)}% coupon: benchmark + ${f(c)}% &minus; ${f(K)}%.`},
+        {html:`Go short the swap; it then pays the benchmark + ${f(c)}%`, correct:false,
+         msg:`Short means paying fixed, so the firm would end up paying fixed twice, not floating. It needs to receive fixed in the swap: go long.`}
+      ];
+      text=`A firm has issued a ${n}-year fixed rate bond with a ${f(c)}% coupon. It would rather pay a floating rate. Swap dealers
+            quote ${n}-year swaps at ${f(K)}% fixed against the 6-month benchmark rate, with no spread, and the same payment dates.`;
+      steps=[`To turn fixed payments into floating ones, the firm receives fixed and pays floating: long the swap.`,
+             `Net: &minus;${f(c)}% + ${f(K)}% &minus; benchmark = &minus;(benchmark + ${f(m)}%).`,
+             `All-in: the benchmark + ${f(m)}% for ${n} years.`];
+    } else {
+      const sp=pick([1.2,1.6,2.0]), all=+(K+sp).toFixed(2);
+      opts=[
+        {html:`Go short the swap; it then pays ${f(all)}% fixed`, correct:true,
+         msg:`Right. It pays the benchmark + ${f(sp)}% on the loan, pays ${f(K)}% and receives the benchmark in the swap. The benchmark payments cancel, leaving ${f(K)}% + ${f(sp)}% = ${f(all)}% fixed. Paying fixed is short the swap.`},
+        {html:`Go long the swap; it then pays ${f(all)}% fixed`, correct:false,
+         msg:`A long swap receives fixed and pays floating, which would leave the firm paying floating twice. To pay fixed it must be short the swap.`},
+        {html:`Go short the swap; it then pays ${f(K)}% fixed`, correct:false,
+         msg:`The short side is right, but the swap's floating receipt is the benchmark with no spread, so it does not cover the loan's ${f(sp)}% spread. The firm still pays that on top: ${f(K)}% + ${f(sp)}%.`},
+        {html:`Go long the swap; it then pays ${f(K)}% fixed`, correct:false,
+         msg:`Long means receiving fixed, so the firm would still pay floating. It needs to pay fixed in the swap: go short.`}
+      ];
+      text=`A firm has a ${n}-year loan at the 6-month benchmark rate + ${f(sp)}%. It would rather pay a fixed rate. Swap dealers
+            quote ${n}-year swaps at ${f(K)}% fixed against the 6-month benchmark rate, with no spread, and the same payment dates.`;
+      steps=[`To turn floating payments into fixed ones, the firm pays fixed and receives floating: short the swap.`,
+             `Net: &minus;(benchmark + ${f(sp)}%) &minus; ${f(K)}% + benchmark = &minus;${f(all)}%.`,
+             `All-in: ${f(all)}% fixed for ${n} years.`];
+    }
+    return {mode:"choice", text, ask:"Which side of the swap should it take, and what rate does it then pay?",
+            options:shuffle(opts), steps};
+  }},
+
+{ id:"k8", topic:"concept", also:["sofr"], name:"A SOFR swap's dollar duration", gen(){
+    /* 22 Oct 2026 blind readers: the options now have one shape and similar lengths (the key used to
+       be the longest and fully explained).                                                         */
+    const n=pick([2,5,10]);
+    const opts=shuffle([
+      {html:`Higher: the SOFR leg has almost no duration`, correct:true,
+       msg:`Right. Compounded SOFR resets every day, so the SOFR FRN can be viewed as a one-day zero: its dollar duration is about zero. With a 6-month benchmark leg, the FRN takes off the dollar duration of a 6-month zero. So the SOFR swap keeps almost all the fixed leg's dollar duration, and is higher.`},
+      {html:`The same: both floating legs are worth par at a reset`, correct:false,
+       msg:`Being at par at a reset says nothing about duration. The 6-month benchmark FRN can be viewed as a 6-month zero, with real dollar duration; the SOFR FRN is about a one-day zero, with almost none.`},
+      {html:`Lower: paying in arrears adds duration to the SOFR leg`, correct:false,
+       msg:`Setting the rate in arrears does the opposite: the floating payment keeps adjusting through the period, so the SOFR leg has almost no duration.`},
+      {html:`Zero: a SOFR swap carries no interest rate risk`, correct:false,
+       msg:`Only the floating leg is almost riskless. The fixed leg is a ${n}-year fixed rate bond, and the swap carries all of its dollar duration.`}
+    ]);
+    return {mode:"choice",
+      text:`Two ${n}-year swaps have the same fixed rate and notional. One's floating leg pays the 6-month benchmark
+            rate, set in advance; the other's pays compounded SOFR in arrears. You are long both: you receive fixed and pay
+            floating. The benchmark swap is on a reset date.`,
+      ask:"How does the long SOFR swap's dollar duration compare with the long benchmark swap's?",
+      options:opts,
+      steps:[
+        `\$\$D(swap) = \$\$D(fixed rate bond) &minus; \$\$D(FRN).`,
+        `Benchmark FRN: it can be viewed as a 6-month zero. SOFR FRN: about a one-day zero, \$\$D &asymp; 0.`,
+        `So the SOFR swap keeps nearly all of the fixed leg's dollar duration: higher.`
+      ]};
+  }},
+
+{ id:"k9", topic:"concept", also:["sofr"], name:"Negative swap spreads", gen(){
+    /* Note 11, Section 7, remark 2: the SOFR swap rate is a riskless par yield, yet it sits below the
+       Treasury par yield; the note's reason is capital. 24 Sep 2025 figure: St. Louis Fed (Bloomberg). */
+    const opts=shuffle([
+      {html:`Buying a Treasury takes much more capital than entering into a swap`, correct:true,
+       msg:`Right. A Treasury has to be paid for and financed, and it sits on the buyer's balance sheet; a swap needs no upfront payment and only a small margin. For the same credit-risk-free exposure, investors ask a slightly higher yield on the Treasury to cover its higher capital cost, so the swap rate ends up below the Treasury yield.`},
+      {html:`The swap market sees the U.S. government as a riskier borrower than a SOFR borrower`, correct:false,
+       msg:`Read as credit, a negative spread would say exactly that, which makes no sense: both are essentially riskless. The gap is about the capital needed to hold a Treasury, not about default.`},
+      {html:`Swap rates still carry bank credit risk, as they did under LIBOR`, correct:false,
+       msg:`Under LIBOR the swap rate was the par yield of bank-quality borrowers, with a little credit risk. With SOFR, a secured overnight rate, that credit risk is gone. And credit risk would push the swap rate <em>above</em> the Treasury yield, not below it.`},
+      {html:`The switch from LIBOR to SOFR made swap spreads negative`, correct:false,
+       msg:`Negative swap spreads are not new: the 30-year spread turned negative in late 2008 and the 10-year dipped below zero in 2010 and has stayed negative since late 2015, while swaps still paid LIBOR (Figure 1 in the note). SOFR removed what was left of the credit in a swap rate, but it did not create the gap.`}
+    ]);
+    return {mode:"choice",
+      text:`The swap spread is the swap rate minus the Treasury yield of the same maturity. On 24 September 2025,
+            the 10-year swap spread was &minus;26 basis points: a 10-year SOFR swap's fixed rate was below the 10-year
+            Treasury yield.`,
+      ask:"Why does the 10-year SOFR swap rate sit below the 10-year Treasury yield?",
+      options:opts,
+      steps:[
+        `A SOFR swap rate is the par yield of a riskless borrower, and so is a Treasury par yield.`,
+        `A Treasury must be paid for, financed and carried on the balance sheet; a swap needs no upfront payment and only a small margin.`,
+        `For the same riskless exposure, investors want a slightly higher yield on the Treasury: the swap spread is negative.`
+      ]};
+  }},
+
+{ id:"k10", topic:"concept", also:["value"], name:"A twist in the yield curve", gen(){
+    /* 10 Oct 2026 review: a receive-fixed swap need not gain when "rates fall". Just after a reset the
+       FRN's coupon is set, so it can be viewed as a 6-month zero. 22 Oct 2026 blind readers: the
+       twist runs either way, so the key is "loses" on some draws and "gains" on others; every option
+       gives a reason of the same shape, two options each way (third sitting: no majority direction).                                                             */
+    const K=pick([3.8,4.2,4.6,5.0]).toFixed(2), a=pick([0.20,0.40,0.60]).toFixed(2), b=pick([0.40,0.60,0.80]).toFixed(2);
+    const shortDown=pick([true,false]);              // true: 6-month yield falls, longer yields rise -> the swap loses
+    const res=shortDown?"loses":"gains", other=shortDown?"gains":"loses";
+    const opts=shuffle([
+      {html:`It ${res}: its fixed leg ${shortDown?"falls":"rises"} and the FRN ${shortDown?"rises":"falls"}`, correct:true,
+       msg:`Right. Swap = fixed rate bond &minus; FRN. The fixed leg's value sits mostly in its later cash flows, now discounted at ${shortDown?"higher":"lower"} yields, so it ${shortDown?"falls":"rises"}. The FRN's next coupon is already set, so it can be viewed as a 6-month zero, and it ${shortDown?"rises as the 6-month yield falls":"falls as the 6-month yield rises"}. Both moves ${shortDown?"hurt":"help"} a long swap.`},
+      {html:`It ${res}: the next payment has gone ${shortDown?"up":"down"}`, correct:false,
+       msg:`That payment was set at today's reset and does not change. The swap ${res} for another reason: its fixed leg ${shortDown?"falls":"rises"} and the FRN it is short ${shortDown?"rises":"falls"}.`},
+      {html:`It ${other}: the 6-month benchmark rate has ${shortDown?"fallen":"risen"}`, correct:false,
+       msg:`A long swap's value follows the yields that price its fixed leg, mostly the 1- to 2-year ones, which ${shortDown?"rose":"fell"}. The 6-month yield moved the other way.`},
+      {html:`It ${other}: the FRN it is short ${shortDown?"rises":"falls"} in value`, correct:false,
+       msg:`The FRN does ${shortDown?"rise":"fall"}, but a long swap is <em>short</em> the FRN, so that move ${shortDown?"hurts":"helps"} it. Together with its fixed leg, the swap ${res}.`}
+    ]);
+    return {mode:"choice",
+      text:`You are long a 2-year swap: you receive a fixed ${K}% p.a. and pay the 6-month benchmark rate, both
+            semi-annually. Today is a reset date, and the floating payment due in six months has just been set. Then
+            the 6-month zero yield ${shortDown?"falls":"rises"} by ${a}%, while the 1-, 1.5- and 2-year zero yields ${shortDown?"rise":"fall"} by ${b}%.`,
+      ask:"What happens to the value of your swap?",
+      options:opts,
+      steps:[
+        `Swap = fixed rate bond &minus; FRN.`,
+        `Fixed leg: most of its value is in the 1- to 2-year cash flows, now discounted at ${shortDown?"higher":"lower"} yields: it ${shortDown?"falls":"rises"}.`,
+        `FRN: its next coupon is set, so it can be viewed as a 6-month zero; the 6-month yield ${shortDown?"fell, so it rises":"rose, so it falls"}. The swap ${res} on both counts.`
+      ]};
+  }},
+
+{ id:"k11", topic:"concept", also:["cash","value"], name:"The next payment versus the swap's value", gen(){
+    /* 10 Oct 2026 review: cash flow and value are different things. The payment at time 1.0 was set at
+       time 0.5 ("set in advance"), so a jump in rates a day later leaves it alone, but the swap's
+       value moves at once with the fixed leg.                                                     */
+    const K=pick([3.8,4.2,4.6,5.0]).toFixed(2), r=pick([3.4,3.8,4.2]).toFixed(2), j=pick([0.50,0.75,1.00]).toFixed(2);
+    const up=pick([true,false]);
+    const v=up?"falls":"rises", wv=up?"rises":"falls", pmove=up?"falls":"rises";
+    const opts=shuffle([
+      {html:`The time-1.0 net cash flow is unchanged; the swap's value ${v}`, correct:true,
+       msg:`Right. The floating payment at time 1.0 was set at time 0.5, at ${r}%, so the jump does not touch it. The swap's value is the fixed rate bond minus the FRN; the fixed leg ${up?"loses":"gains"} far more than the FRN, whose next coupon is set, so the swap's value ${v} at once.`},
+      {html:`The time-1.0 net cash flow ${pmove}; the swap's value ${v}`, correct:false,
+       msg:`The value moves, but the payment does not: the floating rate for the period ending at 1.0 was set at time 0.5. The new rates first affect the payment at time 1.5.`},
+      {html:`The time-1.0 net cash flow is unchanged; the swap's value ${wv}`, correct:false,
+       msg:`Check the direction. A long swap is long the fixed rate bond, which ${up?"falls":"rises"} when yields ${up?"rise":"fall"}.`},
+      {html:`The time-1.0 net cash flow ${pmove}; the swap's value ${wv}`, correct:false,
+       msg:`Both halves are off. The time-1.0 payment was set at 0.5, so it does not move; and a long swap is long the fixed rate bond, which ${up?"falls":"rises"} when yields ${up?"rise":"fall"}.`}
+    ]);
+    return {mode:"choice",
+      text:`You are long a 2-year swap: you receive a fixed ${K}% p.a. and pay the 6-month benchmark rate, both
+            semi-annually, set at the start of each period and paid at its end. At time 0.5 the 6-month benchmark rate
+            is set at ${r}%. A day later, the benchmark rate and all zero yields ${up?"rise":"fall"} by ${j}%.`,
+      ask:`What is the impact of the ${up?"increase":"decrease"} in yields on your net cash flow at time 1.0, and on the value of your swap?`,
+      options:opts,
+      steps:[
+        `The floating payment at time 1.0 uses the rate set at time 0.5 (${r}%): it does not change.`,
+        `The swap's value = fixed rate bond &minus; FRN; the fixed leg moves with the whole curve, the FRN only like a 6-month zero.`,
+        `So the payment stays put, and the swap's value ${v}.`
+      ]};
+  }},
+
+{ id:"k12", topic:"concept", name:"Two meanings of “long a swap”", gen(){
+    /* Section 1, the closing caution: some people call the side that gains when rates rise "long".
+       The note's convention: long = receive fixed (a receiver swap); short = pay fixed (a payer swap). */
+    const up=pick([true,false]), word=(Math.random()<0.7) ? (up?"long":"short") : (up?"short":"long");   // 22 Oct 2026: the trader's word is drawn on its own, so it agrees with the key on some draws
+    const key = up ? `Short the swap: a payer swap (pay fixed, receive floating)` : `Long the swap: a receiver swap (receive fixed, pay floating)`;
+    const opts=shuffle([
+      {html:key, correct:true,
+       msg: up ? `Right. Gaining when rates rise means paying fixed: the fixed rate bond inside the swap is one you have given up. In the note's convention that is short the swap, which practitioners call a payer swap.${word==="long"?" The trader is using the other meaning of “long”.":""}`
+               : `Right. Gaining when rates fall means receiving fixed: you hold the fixed rate bond inside the swap. In the note's convention that is long the swap, a receiver swap.${word==="short"?" The trader is using the other meaning of “long”.":""}`},
+      {html: up ? `Long the swap: a receiver swap (receive fixed, pay floating)` : `Short the swap: a payer swap (pay fixed, receive floating)`, correct:false,
+       msg: up ? `A receiver swap gains when rates <em>fall</em>. The trader gains when they rise, so the trader pays fixed.` : `A payer swap gains when rates <em>rise</em>. The trader gains when they fall, so the trader receives fixed.`},
+      {html: up ? `Long the swap: a payer swap (pay fixed, receive floating)` : `Short the swap: a receiver swap (receive fixed, pay floating)`, correct:false,
+       msg:`The payer/receiver label is right, but in the note's convention long means receiving fixed, so a payer swap is short and a receiver swap is long.`},
+      {html: up ? `Short the swap: a receiver swap (receive fixed, pay floating)` : `Long the swap: a payer swap (pay fixed, receive floating)`, correct:false,
+       msg: up ? `A receiver swap gains when rates fall, not rise.` : `A payer swap gains when rates rise, not fall.`}
+    ]);
+    return {mode:"choice",
+      text:`A trader says: “I am ${word} the swap, because I make money when interest rates go ${up?"up":"down"}.”`,
+      ask:"Using the note's convention, what position does the trader hold?",
+      options:opts,
+      steps:[
+        `Gaining when rates ${up?"rise":"fall"} means ${up?"paying":"receiving"} fixed.`,
+        `In the note's convention, long = receive fixed (a receiver swap); short = pay fixed (a payer swap).`,
+        `So the trader is ${up?"short: a payer swap":"long: a receiver swap"}.`
+      ]};
+  }},
+
+{ id:"e1", topic:"error", also:["value"], name:"Find the mistake — a swap's dollar duration", gen(){
+    /* Section 4 on a 1-year swap (two cash flows). One fault in one of four steps; later steps work
+       from the figures the earlier steps printed (rule 21). Options are not shuffled.            */
+    const F=1000, r4=v=>+v.toFixed(4), sgn4=v=>(v<0?"&minus;":"")+Math.abs(v).toFixed(4);
+    const fault=pick(["coupon","rate","frnT","add"]);
+    const at={coupon:0, rate:1, frnT:2, add:3}[fault];
+    let K, z1, z2, c, zz, DD, Dr, shown, right;
+    do {
+      K=pick(range(3.0,6.0,0.2)); z1=pick(range(3.0,5.0,0.2)); z2=+(z1+pick([0.6,0.8,1.0,1.2])).toFixed(2);
+      c = fault==="coupon" ? F*K/100 : F*K/200;                        // the coupon each half-year
+      zz = fault==="rate" ? [z1,z1] : [z1,z2];                          // discount rates used: the fault prices both at the 6-month rate
+      DD = r4(c/h(zz[0])*0.5/h(zz[0]) + (c+F)/Math.pow(h(zz[1]),2)*1.0/h(zz[1]));
+      Dr = r4(fault==="frnT" ? F*1.0/h(z2) : F*0.5/h(z1));   // the fault: a 1-year zero, at the 1-year yield (one error only, rule 21)
+      shown = r4(fault==="add" ? DD+Dr : DD-Dr);
+      const cR=F*K/200, DDr=r4(cR/h(z1)*0.5/h(z1) + (cR+F)/Math.pow(h(z2),2)*1.0/h(z2));
+      right = r4(DDr - r4(F*0.5/h(z1)));
+    } while (Math.abs(shown-right) < 0.005*Math.abs(right));
+    const hs=x=>h(x).toFixed(4);
+    const st=[
+      `<b>Step 1.</b> The fixed leg pays ${fault==="coupon"?`${K.toFixed(2)}% &times; 1000`:`${K.toFixed(2)}%/2 &times; 1000`} = ${c.toFixed(2)} each half-year, plus the \$1000 at the end`,
+      `<b>Step 2.</b> Discount ${fault==="rate"?`both cash flows at the 6-month zero yield, ${z1.toFixed(2)}%`:`each cash flow at its own zero yield: ${z1.toFixed(2)}% for 6 months, ${z2.toFixed(2)}% for 1 year`}, so the fixed leg's<br>\$\$D = ${c.toFixed(2)}/${hs(zz[0])} &times; 0.5/${hs(zz[0])} + ${(c+F).toFixed(2)}/${hs(zz[1])}<sup>2</sup> &times; 1.0/${hs(zz[1])} = ${DD.toFixed(4)}`,
+      `<b>Step 3.</b> The FRN can be viewed as a zero maturing ${fault==="frnT"?"when the swap ends, in 1 year":"at the next reset, in 6 months"}, worth \$1000: \$\$D = 1000 &times; ${fault==="frnT"?"1.0":"0.5"}/${fault==="frnT"?hs(z2):hs(z1)} = ${Dr.toFixed(4)}`,
+      fault==="add"
+        ? `<b>Step 4.</b> The swap holds both legs, so \$\$D(swap) = ${DD.toFixed(4)} + ${Dr.toFixed(4)} = ${sgn4(shown)}`
+        : `<b>Step 4.</b> Long the swap is long the fixed leg and short the FRN: \$\$D(swap) = ${DD.toFixed(4)} &minus; ${Dr.toFixed(4)} = ${sgn4(shown)}`
+    ];
+    const why={
+      coupon:`The rate is p.a. and the coupons are semi-annual: each is ${K.toFixed(2)}%/2 &times; \$1000 = ${(F*K/200).toFixed(2)}, not ${(F*K/100).toFixed(2)}.`,
+      rate:`Each cash flow is discounted at the zero yield for its own date: the 6-month coupon at ${z1.toFixed(2)}%, the 1-year payment at ${z2.toFixed(2)}%.`,
+      frnT:`The FRN can be viewed as a zero maturing at its next reset, six months away, not when the swap ends, a year away: \$\$D = 1000 &times; 0.5/(1 + z/2).`,
+      add:`Long the swap is <em>short</em> the FRN, so the FRN's dollar duration comes off: \$\$D(swap) = \$\$D(fixed) &minus; \$\$D(FRN).`
+    }[fault];
+    const fine=[
+      `Step 1 is fine: semi-annual coupons of ${K.toFixed(2)}%/2 on \$1000.`,
+      at<1 ? `Step 2 is fine on its own terms: it discounts the cash flows Step 1 gave it, each at its own zero yield. The mistake is earlier.`
+           : `Step 2 is fine: each cash flow at the zero yield for its own date.`,
+      `Step 3 is fine: the FRN can be viewed as a 6-month zero worth \$1000.`,
+      at<3 ? `Step 4 is fine on its own terms: long the swap is the fixed leg minus the FRN, using the figures before it. The mistake is earlier.`
+           : `Step 4 is fine.`
+    ];
+    return {mode:"choice",
+      text:`Some time ago, A went long an interest rate swap with a notional face value of \$1000. It has <b>1 year</b>
+            left: A receives a fixed ${K.toFixed(2)}% p.a. and pays the 6-month benchmark rate, both semi-annually. Today is a reset date. A and its counterparty, B, both borrow at the 6-month benchmark rate,
+            and the zero yields for borrowers like them (p.a., semi-annual compounding) are ${z1.toFixed(2)}% for 6 months
+            and ${z2.toFixed(2)}% for 1 year. A student works out the swap's dollar duration in four steps:`,
+      ask:"Which step introduces the mistake?",
+      options:st.map((html,q)=>({html, correct:q===at, msg:q===at?why:fine[q]})),
+      steps:[
+        `Fixed leg: coupons of ${(F*K/200).toFixed(2)}, each discounted at the zero yield for its own date`,
+        `FRN: it can be viewed as a 6-month zero worth \$1000`,
+        `\$\$D(swap) = \$\$D(fixed) &minus; \$\$D(FRN) = <b>${right.toFixed(4)}</b>`
+      ]};
+  }},
+
+/* ---- added 22 Oct 2026 from Anh's outside reviews (claude.ai and ChatGPT, 22 Oct) ---- */
+
+{ id:"k15", topic:"concept", also:["advantage"], name:"Two shocks to a synthetic FRN", gen(){
+    /* ChatGPT review, 22 Oct (its top pick): Section 3's point that a fixed bond plus a long swap
+       locks in the spread, tested with the benchmark and the firm's own credit moving. 22 Oct 2026
+       blind readers: the benchmark rises or falls and the firm's credit worsens or improves, so
+       neither the key's direction nor its shape is fixed.                                       */
+    let bd, cd;
+    do { bd=pick([-1.0,-0.75,-0.5,0.5,0.75,1.0]); cd=pick([-1.0,-0.75,-0.5,0.5,0.75,1.0,1.25,1.5]); }
+    while (Math.abs(bd-cd)<0.25 || Math.abs(bd+cd)<0.25);
+    const K=pick([4.2,4.6,5.0,5.4]).toFixed(2), s=pick([1.2,1.4,1.6,1.8]).toFixed(2);
+    const b0=pick([3.0,3.5,4.0,4.5]), b1=b0+bd;
+    const chg=v=>v>0?`It is ${v.toFixed(2)}% higher`:`It is ${(-v).toFixed(2)}% lower`;
+    const opts=shuffle([
+      {html:chg(bd), correct:true,
+       msg:`Right. The firm pays its bondholders the ${K}% fixed in its bond, receives ${K}% in the swap and pays the benchmark + ${s}%. None of these depends on credit conditions today, so only the benchmark's move reaches it. The spread was locked in when the bond was issued.`},
+      {html:chg(bd+cd), correct:false,
+       msg:`That adds the change in the firm's own borrowing cost to the benchmark's move. Credit conditions would matter for a firm that has to borrow again, for example by rolling commercial paper. This firm's bond and swap were both priced when it borrowed, so its spread does not change.`},
+      {html:chg(cd), correct:false,
+       msg:`Credit conditions matter only when the firm borrows anew. The bond's ${K}% coupon and the swap's terms are fixed; what does move its cost is the benchmark.`},
+      {html:`It is the same`, correct:false,
+       msg:`The swap locks in the <em>spread</em>, not the rate. The firm pays the benchmark + ${s}%, so a move in the benchmark moves its cost.`}
+    ]);
+    return {mode:"choice",
+      text:`A year ago, a firm issued a 5-year fixed rate bond at ${K}% and went long a 5-year swap, receiving ${K}% and paying the
+            6-month benchmark rate + ${s}%, both semi-annually, so it pays a floating rate. The benchmark rate set for the first six months was
+            ${b0.toFixed(2)}%. Today is a reset date, and the benchmark rate is set at ${b1.toFixed(2)}%. Over the year the credit market has
+            ${cd>0?"tightened":"eased"}: if the firm borrowed today, it would pay ${Math.abs(cd).toFixed(2)}% ${cd>0?"more":"less"} than a year ago.
+            Assume the firm has not issued any new debt and doesn't plan to borrow again in the immediate future. The swap's terms do not change.`,
+      ask:"Compared with the first six months, what is the firm's net interest rate on the bond and swap for the six months starting today?",
+      options:opts,
+      steps:[
+        `Bond: pay ${K}% fixed. Swap: receive ${K}%, pay the benchmark + ${s}%. Net: pay the benchmark + ${s}%.`,
+        `First six months: ${b0.toFixed(2)}% + ${s}%. Six months starting today: ${b1.toFixed(2)}% + ${s}%. The rate is ${Math.abs(bd).toFixed(2)}% ${bd>0?"higher":"lower"}.`,
+        `The ${s}% spread was fixed when the bond and swap were agreed; the change in the credit market would only matter if the firm borrowed again.`
+      ]};
+  }},
+
+{ id:"k16", topic:"concept", also:["value"], name:"A bond position funded short-term", gen(){
+    /* claude.ai review, 22 Oct: holding a fixed bond financed by rolling 6-month borrowing has a
+       long swap's cash flows (Section 4: long swap = long fixed bond - short FRN; Section 7: like
+       a fixed bond financed overnight). 22 Oct 2026 blind readers: on half the draws the mirror case,
+       a fund that issues a fixed bond and invests the cash in rolling 6-month deposits (a short swap),
+       so the key is not always "long". The tempting wrong answer is "no rate risk".                */
+    const K=pick([3.6,4.0,4.4,4.8,5.2]).toFixed(2), M=pick([2,5,10]), longCase=pick([true,false]);
+    const L=`A long ${M}-year swap: receive ${K}% fixed, pay the 6-month benchmark rate`, S=`A short ${M}-year swap: pay ${K}% fixed, receive the 6-month benchmark rate`;
+    const opts=shuffle([
+      {html:longCase?L:S, correct:true,
+       msg: longCase ? `Right. The fund receives the bond's ${K}% coupons and pays the benchmark on its borrowing, which is being short a FRN; at maturity the bond's principal repays the loan. Long fixed rate bond &minus; FRN is a long swap.`
+                     : `Right. The fund pays its bond's ${K}% coupons and receives the benchmark on its deposits, which is holding a FRN; at maturity the deposits repay the bond. FRN &minus; fixed rate bond is a short swap.`},
+      {html:longCase?S:L, correct:false,
+       msg: longCase ? `The fund <em>receives</em> the fixed coupons, from its bond, and <em>pays</em> floating, on its loan. That is the long side.`
+                     : `The fund <em>pays</em> the fixed coupons, on its bond, and <em>receives</em> floating, from its deposits. That is the short side.`},
+      {html:`No position at all: the two amounts cancel, so there is no interest rate risk`, correct:false,
+       msg:`The amounts match, but the rates do not: one side is fixed at ${K}% and the other resets every six months. ${longCase?"If rates rise, its borrowing costs rise and its bond loses value":"If rates fall, its deposits earn less while it still pays "+K+"%"}, just like a ${longCase?"long":"short"} swap.`},
+      {html: longCase ? `A long ${M}-year ${K}% fixed rate bond, nothing more` : `A short ${M}-year ${K}% fixed rate bond, nothing more`, correct:false,
+       msg: longCase ? `The bond is only half of it. The rolled loan is a floating-rate liability, a short FRN, so the whole position is bond &minus; FRN: a long swap.`
+                     : `The bond is only half of it. The rolled deposits are a floating-rate asset, a FRN, so the whole position is FRN &minus; bond: a short swap.`}
+    ]);
+    return {mode:"choice",
+      text: longCase
+        ? `A fund buys a ${M}-year ${K}% fixed rate bond at par, \$1 million face. It pays for it by borrowing \$1 million for six
+           months at the 6-month benchmark rate, and rolls the loan every six months until the bond matures. Ignore default.`
+        : `A fund issues a ${M}-year ${K}% fixed rate bond at par, \$1 million face. It puts the \$1 million in six-month deposits
+           at the 6-month benchmark rate, and rolls them every six months until the bond matures. Ignore default.`,
+      ask:"What is the fund's position equivalent to?",
+      options:opts,
+      steps: longCase ? [
+        `The fund holds a fixed rate bond: it receives ${K}% fixed.`,
+        `Rolling 6-month loans at the benchmark rate is like being short a FRN: it pays the benchmark rate, and owes the \$1 million at the end.`,
+        `Long fixed rate bond &minus; FRN = a long swap: receive fixed, pay floating. The principals cancel.`
+      ] : [
+        `The fund has issued a fixed rate bond: it pays ${K}% fixed.`,
+        `Rolling 6-month deposits at the benchmark rate is like holding a FRN: it receives the benchmark rate, and gets the \$1 million back at the end.`,
+        `FRN &minus; fixed rate bond = a short swap: pay fixed, receive floating. The principals cancel.`
+      ]};
+  }},
+
+{ id:"k18", topic:"concept", also:["rate"], name:"Where the swap rate sits", gen(){
+    /* claude.ai review, 22 Oct. The swap rate is the coupon of a 2-year bond at par. Most of its value
+       is the final payment, discounted at the 2-year yield, so the swap rate is close to the 2-year
+       zero yield; the earlier coupons, discounted at the earlier yields, pull it slightly towards
+       them. 22 Oct 2026 blind readers: rising and falling curves, so the key flips between "above" and
+       "below"; options of one shape; no figure printed. Checked on each draw.                        */
+    let z, d, k, avg, up;
+    do {
+      up=pick([true,false]);
+      const z0=pick(range(3.0,5.6,0.2)), st=[pick([0.2,0.4,0.6]),pick([0.2,0.4]),pick([0.2,0.4])];
+      z=[z0, z0+(up?1:-1)*st[0], 0, 0]; z[2]=z[1]+(up?1:-1)*st[1]; z[3]=z[2]+(up?1:-1)*st[2];
+      z=z.map(x=>+x.toFixed(2));
+      d=z.map((zk,i)=>Math.pow(1+zk/200,-(i+1)));
+      k=2*(1-d[3])/d.reduce((s,x)=>s+x,0)*100; avg=z.reduce((s,x)=>s+x,0)/4;
+    } while (z[3]<1 || Math.abs(k-z[3])<0.005 || Math.abs(k-avg)<0.2);
+    const f=x=>x.toFixed(2), above=k>z[3];
+    const earlier=up?"lower":"higher";
+    const opts=shuffle([
+      {html:`Slightly above the 2-year zero yield`, correct:above,
+       msg: above ? `Right. The swap rate is the coupon of a 2-year bond priced at par. Most of that bond's value is the final payment, discounted at the 2-year yield, so the swap rate is close to ${f(z[3])}%. The coupons come earlier, at higher yields, which pull it slightly above: here ${k.toFixed(3)}%.`
+                  : `On a rising curve the earlier coupons are discounted at lower yields, which pull the swap rate slightly <em>below</em> the 2-year yield: here ${k.toFixed(3)}% against ${f(z[3])}%.`},
+      {html:`Slightly below the 2-year zero yield`, correct:!above,
+       msg: !above ? `Right. The swap rate is the coupon of a 2-year bond priced at par. Most of that bond's value is the final payment, discounted at the 2-year yield, so the swap rate is close to ${f(z[3])}%. The coupons come earlier, at lower yields, which pull it slightly below: here ${k.toFixed(3)}%.`
+                   : `That is where it sits on a rising curve. Here the earlier yields are higher than the 2-year yield, so they pull the swap rate up, not down: ${k.toFixed(3)}% against ${f(z[3])}%.`},
+      {html:`Equal to the 2-year zero yield: the final payment fixes it`, correct:false,
+       msg:`The final payment dominates, so the swap rate is close to the 2-year yield, but not equal to it: the earlier coupons are discounted at ${earlier} yields, which pull it slightly ${above?"above":"below"}: ${k.toFixed(3)}% against ${f(z[3])}%.`},
+      {html:`Near today's 6-month benchmark rate, which sets the first payment`, correct:false,
+       msg:`The 6-month rate only sets the first floating payment. The swap rate is the coupon of a 2-year bond at par, so it sits close to the 2-year yield: ${k.toFixed(3)}%.`}
+    ]);
+    return {mode:"choice",
+      text:`The zero yields (p.a., semi-annual compounding) for borrowers who borrow at the 6-month benchmark rate are:
+            6-month ${f(z[0])}%, 12-month ${f(z[1])}%, 18-month ${f(z[2])}%, 24-month ${f(z[3])}%. Two such borrowers agree a
+            2-year swap, fixed against the 6-month benchmark rate, both semi-annual.`,
+      ask:"Where does the 2-year swap rate lie?",
+      options:opts,
+      steps:[
+        `The swap rate k makes a 2-year bond paying k% at par: 100 = (k/2) &times; (d<sub>0.5</sub> + d<sub>1</sub> + d<sub>1.5</sub> + d<sub>2</sub>) + 100 &times; d<sub>2</sub>.`,
+        `Most of that bond's value is the final payment, discounted at the 2-year yield, so k is close to ${f(z[3])}%.`,
+        `That is just ${above?"above":"below"} the 2-year yield, ${f(z[3])}%: the final payment dominates, and the earlier coupons are discounted at ${earlier} yields.`
+      ]};
+  }},
+
+{ id:"e2", topic:"error", also:["rate"], name:"Find the mistake — the swap rate", gen(){
+    /* claude.ai review, 22 Oct: a second find-the-mistake item, on Section 5's par-yield
+       calculation for a 1-year swap (two cash flows, rule 33). One fault in one of four steps;
+       later steps work from the figures the earlier steps printed (rule 21).                    */
+    const fault=pick(["coupon","comp","last","half"]);
+    const at={coupon:0, comp:1, last:2, half:3}[fault];
+    let z1, z2, d1, d2, kShown, right;
+    do {
+      z1=pick(range(3.0,5.0,0.2)); z2=+(z1+pick([0.4,0.6,0.8,1.0])).toFixed(2);
+      d1=+(1/h(z1)).toFixed(6);
+      d2=+(fault==="comp" ? 1/h(z2) : 1/Math.pow(h(z2),2)).toFixed(6);
+      // par equation on $100: 100 = c(k) d1 + (L + c(k)) d2, with c(k) = k/2 (k for "coupon"), L = 100
+      if (fault==="coupon")    kShown = (1-d2)/(d1+d2)*100;          // coupons of k: 100 = k d1 + (100 + k) d2
+      else if (fault==="last") kShown = 2*(1-d2)/d1*100;             // last payment 100: 100 = (k/2) d1 + 100 d2
+      else if (fault==="half") kShown = (1-d2)/(d1+d2)*100;          // solved for k/2 and reported it as k
+      else                     kShown = 2*(1-d2)/(d1+d2)*100;
+      const D2=1/Math.pow(h(z2),2), D1=1/h(z1);
+      right = 2*(1-D2)/(D1+D2)*100;
+    } while (Math.abs(kShown-right) < 0.02*right);
+    const f6=x=>x.toFixed(6), k3=x=>x.toFixed(3);
+    const st=[
+      fault==="coupon"
+        ? `<b>Step 1.</b> On \$100 face, the fixed leg pays k at 6 months and k + 100 at 1 year`
+        : `<b>Step 1.</b> On \$100 face, the fixed leg pays k/2 at 6 months and k/2 + 100 at 1 year`,
+      `<b>Step 2.</b> Discount factors: d<sub>0.5</sub> = 1/${h(z1).toFixed(4)} = ${f6(d1)}; d<sub>1</sub> = 1/${h(z2).toFixed(4)}${fault==="comp"?"":"<sup>2</sup>"} = ${f6(d2)}`,
+      fault==="coupon"
+        ? `<b>Step 3.</b> At inception the swap is worth zero, so this bond is at par: 100 = k &times; ${f6(d1)} + (100 + k) &times; ${f6(d2)}`
+        : fault==="last"
+        ? `<b>Step 3.</b> At inception the swap is worth zero, so this bond is at par: 100 = (k/2) &times; ${f6(d1)} + 100 &times; ${f6(d2)}`
+        : `<b>Step 3.</b> At inception the swap is worth zero, so this bond is at par: 100 = (k/2) &times; ${f6(d1)} + (100 + k/2) &times; ${f6(d2)}`,
+      fault==="coupon"
+        ? `<b>Step 4.</b> So k = 100 &times; (1 &minus; ${f6(d2)}) / (${f6(d1)} + ${f6(d2)}) = ${k3(kShown)}%`
+        : fault==="last"
+        ? `<b>Step 4.</b> So k = 2 &times; 100 &times; (1 &minus; ${f6(d2)}) / ${f6(d1)} = ${k3(kShown)}%`
+        : fault==="half"
+        ? `<b>Step 4.</b> So k = 100 &times; (1 &minus; ${f6(d2)}) / (${f6(d1)} + ${f6(d2)}) = ${k3(kShown)}%`
+        : `<b>Step 4.</b> So k = 2 &times; 100 &times; (1 &minus; ${f6(d2)}) / (${f6(d1)} + ${f6(d2)}) = ${k3(kShown)}%`
+    ];
+    const why={
+      coupon:`The swap rate is p.a. and the payments are semi-annual: each coupon is k/2, not k.`,
+      comp:`The 1-year zero yield compounds semi-annually, so its discount factor is 1/(1 + z/2)<sup>2</sup>, not 1/(1 + z/2).`,
+      last:`The last payment is the principal <em>plus</em> the last coupon: 100 + k/2, not 100.`,
+      half:`Solving Step 3 gives k/2 = 100 &times; (1 &minus; d<sub>1</sub>) / (d<sub>0.5</sub> + d<sub>1</sub>). The swap rate is twice that.`
+    }[fault];
+    const fine=[
+      `Step 1 is fine: semi-annual coupons of k/2, and the principal at the end.`,
+      `Step 2 is fine: each yield compounds semi-annually over its own number of half-years.`,
+      at<2 ? `Step 3 is fine on its own terms: it prices at par the cash flows Steps 1 and 2 gave it. The mistake is earlier.` : `Step 3 is fine: at inception the swap is worth zero when the fixed rate bond is at par.`,
+      at<3 ? `Step 4 is fine on its own terms: it solves the equation in Step 3. The mistake is earlier.` : `Step 4 is fine.`
+    ];
+    return {mode:"choice",
+      text:`The zero yields (p.a., semi-annual compounding) for borrowers who borrow at the 6-month benchmark rate are
+            ${z1.toFixed(2)}% for 6 months and ${z2.toFixed(2)}% for 1 year. A student works out the 1-year swap rate k, fixed
+            against the 6-month benchmark rate, both semi-annual, in four steps:`,
+      ask:"Which step introduces the mistake?",
+      options:st.map((html,q)=>({html, correct:q===at, msg:q===at?why:fine[q]})),
+      steps:[
+        `On \$100 face the fixed leg pays k/2 at 6 months and 100 + k/2 at 1 year`,
+        `d<sub>0.5</sub> = 1/${h(z1).toFixed(4)}; d<sub>1</sub> = 1/${h(z2).toFixed(4)}<sup>2</sup>`,
+        `100 = (k/2) &times; d<sub>0.5</sub> + (100 + k/2) &times; d<sub>1</sub>, so k = 2 &times; 100 &times; (1 &minus; d<sub>1</sub>) / (d<sub>0.5</sub> + d<sub>1</sub>) = <b>${k3(right)}%</b>`
+      ]};
+  }}
+];
+
+const TOPICS = [
+  {key:"all", label:"Mixed"},
+  {key:"cash", label:"Cash flows"},
+  {key:"advantage", label:"Comparative advantage"},
+  {key:"value", label:"Valuation"},
+  {key:"rate", label:"The swap rate"},
+  {key:"hedge", label:"Hedging"},
+  {key:"sofr", label:"SOFR swaps"},
+  {key:"concept", label:"Reason it out"},
+  {key:"error", label:"Find the mistake"}
+];
+
+/* ----------------------------------------------------------------- state */
+let active = "all", current = null, tries = 0;
+let peeked = false, solved = false, tallied = false;  // tallied = already counted in `attempted`
+const stats = {att:0, first:0, streak:0, peek:0};
+
+const $ = id => document.getElementById(id);
+
+function buildTopics(){
+  const box = $("topics");
+  TOPICS.forEach(t=>{
+    const b = document.createElement("button");
+    b.className = "chip"; b.textContent = t.label;
+    b.setAttribute("aria-pressed", String(t.key===active));
+    b.onclick = ()=>{
+      active = t.key;
+      [...box.children].forEach(c=>c.setAttribute("aria-pressed","false"));
+      b.setAttribute("aria-pressed","true");
+      seqIdx = 0;                 // a new topic restarts the sequence
+      newQuestion();
+    };
+    box.appendChild(b);
+  });
+  /* the Starred chip: practise only the questions starred on this page */
+  const s = document.createElement("button");
+  s.className = "chip"; s.id = "chipStar";
+  s.setAttribute("aria-pressed", "false");
+  s.onclick = ()=>{
+    active = "starred";
+    [...box.children].forEach(c=>c.setAttribute("aria-pressed","false"));
+    s.setAttribute("aria-pressed","true");
+    seqIdx = 0;
+    newQuestion();
+  };
+  box.appendChild(s);
+  updateStarChip();
+}
+
+const ALL_TEMPLATES = TEMPLATES.concat(CHOICE_TEMPLATES);
+
+/* A template's primary topic is `topic`; it may also list secondary topics in
+   `also`, so one item can appear under several chips. */
+function inTopic(t, key){
+  return t.topic === key || (Array.isArray(t.also) && t.also.includes(key));
+}
+
+/* ---- progress: distinct templates solved without opening the solution ---- */
+const PROG_KEY = "practice-progress:" + document.title;
+let mastered = new Set();
+try { mastered = new Set(JSON.parse(localStorage.getItem(PROG_KEY) || "[]")); }
+catch (e) { mastered = new Set(); }
+
+function saveProgress(){
+  try { localStorage.setItem(PROG_KEY, JSON.stringify([...mastered])); } catch (e) {}
+}
+function markMastered(id){
+  if (!id || mastered.has(id)) return;
+  mastered.add(id);
+  saveProgress();
+}
+
+/* ---- starred questions: kept per template, so a starred question comes back with new
+   numbers. Starred automatically on a wrong answer or on opening the solution before
+   solving; the student can star or unstar any question by hand. ---- */
+const STAR_KEY = "practice-starred:" + document.title;
+let starred = new Set();
+try { starred = new Set(JSON.parse(localStorage.getItem(STAR_KEY) || "[]")); }
+catch (e) { starred = new Set(); }
+starred = new Set([...starred].filter(id => ALL_TEMPLATES.some(t => t.id === id)));
+
+function saveStars(){
+  try { localStorage.setItem(STAR_KEY, JSON.stringify([...starred])); } catch (e) {}
+}
+function updateStarChip(){
+  const c = document.getElementById("chipStar");   // made by buildTopics, not in the markup
+  if (c) c.textContent = "★ Starred (" + starred.size + ")";
+}
+function showStar(){
+  const on = !!(current && starred.has(current.id));
+  $("star").hidden = !current;
+  $("star").setAttribute("aria-pressed", String(on));
+  $("star").textContent = on ? "★ Starred" : "☆ Star";
+}
+function setStar(id, on){
+  if (!id) return;
+  if (on) starred.add(id); else starred.delete(id);
+  saveStars(); updateStarChip(); showStar();
+}
+function autoStar(){ if (current && !starred.has(current.id)) setStar(current.id, true); }
+
+function poolFor(key){
+  if (key === "all") return ALL_TEMPLATES;
+  if (key === "starred") return ALL_TEMPLATES.filter(t => starred.has(t.id));
+  return ALL_TEMPLATES.filter(t => inTopic(t, key));
+}
+
+/* Templates are drawn WITHOUT immediate repeats. Sampling with replacement
+   looks fine on the full bank, but a topic holding only three or four
+   templates repeats roughly one press in three, which reads as the button
+   being broken. Hold the most recent half of the pool out of the draw. */
+let recentIds = [];
+/* Questions seen this session, so the arrow keys can step back and forth through them. */
+let history = [], histIdx = -1;
+let navKey = false;      // true while an arrow key is doing the rendering
+let order = "shuffle";   // "shuffle" | "seq"
+let seqIdx = 0;
+
+function newQuestion(replay){
+  let q;
+  if (replay){ q = replay.q; }
+  else {
+  const pool = poolFor(active);
+  if (!pool.length){
+    current = null;
+    $("qmeta").textContent = "Starred";
+    $("qtext").innerHTML = "No starred questions yet. A question is starred when you answer it " +
+      "wrongly or open its solution before solving it, and you can star any question yourself with " +
+      "<b>☆ Star</b>. Pick another chip to practise.";
+    $("qask").innerHTML = "";
+    $("opts").hidden = true; $("opts").innerHTML = "";
+    $("ans").hidden = true; $("check").hidden = true; $("next").hidden = true;
+    $("fb").innerHTML = ""; $("soldetails").hidden = true; $("seqPos").textContent = "";
+    showStar();
+    return;
+  }
+  let tpl;
+  if (order === "seq"){
+    /* walk the bank in order, wrapping at the end */
+    if (seqIdx >= pool.length) seqIdx = 0;
+    tpl = pool[seqIdx];
+    seqIdx = (seqIdx + 1) % pool.length;
+    $("seqPos").textContent = `${seqIdx === 0 ? pool.length : seqIdx} of ${pool.length}`;
+  } else {
+    const hold = Math.max(1, Math.floor(pool.length / 2));
+    let choices = pool.filter(t => !recentIds.slice(0, hold).includes(t.id));
+    if (!choices.length) choices = pool;        // pool of one, or all held out
+    tpl = pick(choices);
+    recentIds.unshift(tpl.id);
+    if (recentIds.length > 40) recentIds.length = 40;
+    $("seqPos").textContent = "";
+  }
+  q = tpl.gen();
+  q.name = tpl.name;
+  q.id   = tpl.id;
+  q.seqPos = $("seqPos").textContent;   // carried so stepping back shows its own position
+  if (q.mode !== "choice") q.distractors = usable(q.correct, q.cands, q.sep);
+  }
+  current = q;
+  if (replay){
+    tries = replay.tries; peeked = replay.peeked; solved = replay.solved; tallied = replay.tallied;
+  } else {
+    tries = 0; peeked = false; solved = false; tallied = false;
+    history = history.slice(0, histIdx + 1);           // a new draw discards anything ahead
+    history.push({q, tries:0, peeked:false, solved:false, tallied:false, fb:"", ans:""});
+    if (history.length > 50){ history.shift(); }
+    histIdx = history.length - 1;
+  }
+
+  const isChoice = q.mode === "choice";
+  $("qmeta").textContent = q.name;
+  $("qtext").innerHTML   = q.text;
+  $("qask").innerHTML    = q.ask;
+  /* Hide the input and Check individually, NOT the whole row -- the
+     "New question" button lives in that row and must stay reachable
+     on choice questions. */
+  $("ans").hidden   = isChoice;
+  $("check").hidden = isChoice;
+  $("next").hidden  = false;
+  showStar();
+  $("opts").hidden     = !isChoice;
+  const box = $("opts");
+  box.innerHTML = "";              // always clear, even when the panel is hidden
+  if (isChoice){
+    q.options.forEach((o,k)=>{
+      const btn = document.createElement("button");
+      btn.className = "opt"; btn.innerHTML = o.html;
+      btn.onclick = () => pickOption(k);
+      box.appendChild(btn);
+    });
+  }
+  $("ans").value = "";
+  $("ans").placeholder = q.unit==="money" ? "e.g. 1234.56"
+                     : q.unit==="percent" ? "e.g. 12.34  (percent)"
+                     : "e.g. 18";
+  $("ans").disabled = false;
+  $("check").disabled = false;
+  $("fb").innerHTML = "";
+  $("steps").innerHTML = q.steps.map(s=>`<div>${s}</div>`).join("");
+  const d = $("soldetails"); d.hidden = false; d.open = false;
+  if (replay){
+    /* Put the question back exactly as it was left --- the feedback, what was typed, and
+       whether it had already been answered. The tallied/solved flags come back with it,
+       so revisiting a question never re-counts an attempt or re-awards mastery. */
+    $("fb").innerHTML = replay.fb || "";
+    $("ans").value    = replay.ans || "";
+    $("seqPos").textContent = q.seqPos || "";
+    if (isChoice && q.wrong){
+      [...$("opts").children].forEach((b,j)=>{
+        if (q.wrong.indexOf(j) >= 0){ b.classList.add("wrong"); b.disabled = true; }
+      });
+    }
+    if (solved || q.done){
+      if (isChoice){
+        [...$("opts").children].forEach((b,j)=>{ b.disabled = true;
+          if (q.options[j].correct) b.classList.add("right"); });
+      } else { $("ans").disabled = true; $("check").disabled = true; }
+    }
+    d.open = peeked || solved;
+  }
+  /* Arriving by arrow key must not park the cursor in the answer box: a restored answer
+     sitting there would swallow the next arrow press and strand the student. */
+  if (navKey) $("ans").blur();
+  else if (!isChoice && !$("ans").disabled) $("ans").focus();
+}
+
+function parseInput(raw){
+  const cleaned = raw.replace(/[$,%\s,]/g,"");
+  if (cleaned === "" ) return NaN;
+  return Number(cleaned);
+}
+
+function say(kind, title, body){
+  $("fb").innerHTML = `<div class="fb ${kind}"><strong>${title}</strong>${body}</div>`;
+}
+
+function pickOption(k){
+  const q = current;
+  if (q.done) return;
+  const o    = q.options[k];
+  const btns = [...$("opts").children];
+
+  tries++;
+  if (!tallied){ tallied = true; stats.att++; }
+
+  if (o.correct){
+    q.done = true; solved = true;
+    btns.forEach((b2,j)=>{ b2.disabled = true; if (q.options[j].correct) b2.classList.add("right"); });
+    if (peeked){
+      stats.streak = 0;
+      say("ok","Correct — but you read the solution first.",
+          "It still counts as attempted, just not toward first-try accuracy or your streak. " + o.msg);
+    } else {
+      stats.streak++;
+      if (tries === 1) stats.first++;
+      markMastered(q.id);
+      say("ok", tries===1 ? "Correct — first try." : "Correct.", o.msg);
+    }
+    $("soldetails").open = true;
+  } else {
+    stats.streak = 0;
+    btns[k].classList.add("wrong");
+    btns[k].disabled = true;
+    (q.wrong || (q.wrong = [])).push(k);   // remembered so a revisit keeps it eliminated
+    autoStar();
+    say("no","Not that one.", o.msg);
+  }
+  render();
+}
+
+function check(){
+  const raw = $("ans").value;
+  const parsed = parseInput(raw);
+  if (!Number.isFinite(parsed)){
+    say("hint","Enter a number","Type your answer as a number — you can include $ , or % and it will be ignored.");
+    return;
+  }
+  const q = current;
+  const val = q.unit==="percent" ? parsed/100 : parsed;
+  const TOL = q.tol || REL_MATCH;
+
+  /* Unit slips are formatting mistakes, not wrong answers, so they cost
+     neither an attempt nor first-try credit. Guarded so a genuinely
+     correct entry can never be mistaken for one. */
+  if (!near(val, q.correct, TOL)){
+    if (q.unit==="percent" && near(parsed, q.correct, TOL)){
+      say("hint","Right number, wrong units.",
+          `You entered <code>${raw}</code> as a decimal. This box wants a percent — enter <code>${(q.correct*100).toFixed(4).replace(/\.?0+$/,"")}</code> instead.`);
+      return;
+    }
+    if (near(val*100, q.correct, TOL) || near(val/100, q.correct, TOL)){
+      say("hint","Check your units.","Your figure is off by a factor of 100. Re-read what the box is asking for.");
+      return;
+    }
+  }
+
+  tries++;
+  if (!tallied){ tallied = true; stats.att++; }   // count each question once, right or wrong
+
+  if (near(val, q.correct, TOL)){
+    solved = true;
+    if (peeked){
+      stats.streak = 0;
+      say("ok","Correct — but you read the solution first.",
+          "That is a perfectly good way to learn, and it still counts as attempted. It does " +
+          "not count toward first-try accuracy or your streak, so those numbers stay honest. " +
+          "Try the next one before opening the solution.");
+    } else {
+      stats.streak++;
+      if (tries === 1) stats.first++;
+      markMastered(q.id);
+      say("ok","Correct.", tries===1 ? "First try — well done." : "Got there.");
+    }
+    $("check").disabled = true; $("ans").disabled = true;
+    $("soldetails").open = true;
+    render(); return;
+  }
+
+  stats.streak = 0;
+  autoStar();
+  const hit = q.distractors.find(d => near(val, d.val, TOL));
+  say("no", hit ? "Not quite — and I can see why." : "Not quite.",
+      hit ? hit.msg
+          : "That does not match any of the usual slips, so it may be an arithmetic error. Try again, or open the worked solution below.");
+  render();
+}
+
+function render(){
+  $("sAtt").textContent    = stats.att;
+  $("sFirst").textContent  = stats.first;
+  $("sAcc").textContent    = stats.att ? Math.round(stats.first/stats.att*100)+"%" : "—";
+  $("sStreak").textContent = stats.streak;
+  $("sPeek").textContent   = stats.peek;
+  const total = ALL_TEMPLATES.length;
+  $("pTotal").textContent  = total;
+  $("pDone").textContent   = mastered.size;
+  $("progfill").style.width = (total ? 100*mastered.size/total : 0).toFixed(1) + "%";
+}
+
+$("check").onclick = () => { if (current) check(); };
+$("star").onclick  = () => { if (current) setStar(current.id, !starred.has(current.id)); };
+$("next").onclick  = () => newQuestion();   // arrow fn: never pass the click Event as `replay`
+
+/* ---- arrow keys: right for the next question, left for the previous one -------------
+   Ignored while the answer box is being typed in, where the arrows move the caret, and
+   ignored with a modifier held so the browser's own shortcuts still work.            */
+function snapshotQuestion(){
+  const h = history[histIdx];
+  if (!h) return;
+  h.tries = tries; h.peeked = peeked; h.solved = solved; h.tallied = tallied;
+  h.fb = $("fb").innerHTML; h.ans = $("ans").value;
+}
+function goBack(){
+  if (histIdx <= 0) return;
+  snapshotQuestion(); histIdx--;
+  navKey = true; newQuestion(history[histIdx]); navKey = false;
+}
+function goForward(){
+  snapshotQuestion();
+  navKey = true;
+  if (histIdx < history.length - 1){ histIdx++; newQuestion(history[histIdx]); }
+  else newQuestion();
+  navKey = false;
+}
+document.addEventListener("keydown", e => {
+  if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+  if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+  const t = e.target;
+  if (t && (t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+  /* Inside the answer box the arrows belong to the caret --- but only while it still has
+     somewhere to go. Once it sits at the end you are pressing toward, the press is free,
+     so a half-typed answer never traps a student in the field. */
+  if (t && t.tagName === "INPUT" && !t.disabled){
+    const at = t.selectionStart, to = t.selectionEnd, n = String(t.value).length;
+    if (at === null || at !== to) return;                       // a selection: leave it alone
+    if (e.key === "ArrowRight" ? at < n : at > 0) return;
+  }
+  e.preventDefault();
+  if (e.key === "ArrowRight") goForward(); else goBack();
+});
+$("ans").addEventListener("keydown", e=>{ if(e.key==="Enter" && !$("check").disabled) check(); });
+$("soldetails").addEventListener("toggle", ()=>{
+  if ($("soldetails").open && !solved && !peeked){
+    peeked = true;
+    stats.peek++;
+    autoStar();
+    if (!tallied){ tallied = true; stats.att++; }  // opening it counts as engaging with the question
+    render();
+  }
+});
+
+function setOrder(o){
+  order = o; seqIdx = 0;
+  $("mShuffle").setAttribute("aria-pressed", String(o === "shuffle"));
+  $("mSeq").setAttribute("aria-pressed",     String(o === "seq"));
+  newQuestion();
+}
+$("mShuffle").onclick = () => setOrder("shuffle");
+$("mSeq").onclick     = () => setOrder("seq");
+
+$("pReset").onclick = () => {
+  if (!mastered.size) return;
+  mastered.clear(); saveProgress(); render();
+};
+
+buildTopics();
+newQuestion();
+render();
+</script>
+</body>
+</html>
