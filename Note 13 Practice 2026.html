@@ -1053,13 +1053,13 @@ const CHOICE_TEMPLATES = [{ id:"k1", topic:"concept", name:"Why they are not rea
 { id:"k4", topic:"concept", name:"Which is bigger, q or the true probability?", gen(){
     const opts=shuffle([
       {html:`Higher than 0.6`, correct:true,
-       msg:`Right. Under q the share is expected to earn just the risk-free rate. For it to earn more, which investors demand for bearing its risk, the true chance of the up state has to be higher than 0.6. (At 0.5, the expected return would be zero.)`},
+       msg:`Right. To express their risk aversion, investors inflate the probabilities of bad outcomes and deflate the probabilities of good outcomes. The up state is the good outcome for the share, so q = 0.6 is below its true probability.`},
       {html:`Lower than 0.6`, correct:false,
-       msg:`It is the other way round. Risk-neutral weights are <em>pessimistic</em>: they shift weight towards the bad state. So the true probability of the good state is higher than q.`},
+       msg:`It is the other way round. To express their risk aversion, investors deflate the probability of a good outcome, and the up state is the good outcome for the share. So the true probability is higher than q.`},
       {html:`Exactly 0.6`, correct:false,
        msg:`q is not anyone's guess of the chance of a rise. It was derived without using any probability, and it equals the true probability only if investors demand no premium for the share's risk.`},
       {html:`It cannot be said without knowing which option is priced`, correct:false,
-       msg:`Neither q nor the true probability depends on the option: both belong to the share. If the share earns a positive risk premium, the true probability of a rise exceeds 0.6.`}
+       msg:`Neither q nor the true probability depends on the option: both belong to the share. The up state is the good outcome for the share, so its true probability exceeds the deflated 0.6.`}
     ]);
     return {mode:"choice",
       text:`A share is worth \$100 today and \$105 or \$95 in six months. The risk-neutral probability of the up state,
@@ -1068,9 +1068,9 @@ const CHOICE_TEMPLATES = [{ id:"k1", topic:"concept", name:"Why they are not rea
       ask:"How does the true probability of the up state compare with the risk-neutral probability of 0.6?",
       options:opts,
       steps:[
-        `At q the share prices at \$100 discounted at the risk-free rate &mdash; a zero risk premium.`,
-        `Shares carry a positive risk premium, so their true expected payoff exceeds that.`,
-        `With even odds the expected payoff is \$100, an expected return of 0% &mdash; unthinkable. So the true probability must be above 0.6.`
+        `The risk-neutral probabilities are not the true probabilities. To express their risk aversion, investors inflate the probabilities of bad outcomes and deflate the probabilities of good outcomes.`,
+        `For the share, the up state (\$105) is the good outcome and the down state (\$95) is the bad outcome. So the risk-neutral probability of the up state, 0.6, is a deflated version of the true probability.`,
+        `So the true probability of the up state is higher than 0.6.`
       ]};
   }},
 
@@ -1254,7 +1254,31 @@ const $ = id => document.getElementById(id);
 function figHTML(fig){
   const txt = s => String(s).replace(/<[^>]+>/g, "");
   const len = s => txt(s).replace(/&[a-z]+;/g, "x").length;
+  /* A multi-period recombining tree (Notes 16 and 19, 22 Oct 2026): t.lat[k] lists the nodes at
+     date k from the top; a node is a string or an array of lines; t.times labels the dates.      */
+  const latSVG = t => {
+    const L = t.lat.length, lines = v => (Array.isArray(v) ? v : [v]).map(txt);
+    const colW = t.lat.map(col => Math.max(24, ...col.map(v => Math.max(...lines(v).map(len))*8.2)));
+    const nl = Math.max(...t.lat.flat().map(v => lines(v).length)), lh = 17, h = nl > 1 ? 30 : 17, top = 30;
+    const cx = []; let x = 4;
+    colW.forEach((w, k) => { cx.push(x + w/2); x += w + 44; });
+    const W = Math.max(x - 44 + 4, 8.5*len(t.label) + 10);
+    const yOf = (k, i) => top + h*(2*i + (L-1-k)) + (nl-1)*lh/2;
+    const H = top + h*2*(L-1) + nl*lh + (t.times ? 26 : 6);
+    let g = `<text class="tl" x="${W/2}" y="14" text-anchor="middle">${txt(t.label)}</text>`;
+    t.lat.forEach((col, k) => col.forEach((v, i) => {
+      const y = yOf(k, i), ls = lines(v);
+      ls.forEach((s, j) => g += `<text x="${cx[k]}" y="${y + 5 + (j - (ls.length-1)/2)*lh}" text-anchor="middle">${s}</text>`);
+      if (k < L-1) [i, i+1].forEach(c => {
+        const y2 = yOf(k+1, c);
+        g += `<line x1="${cx[k] + colW[k]/2 + 4}" y1="${y}" x2="${cx[k+1] - colW[k+1]/2 - 4}" y2="${y2}" stroke-width="1.6"/>`;
+      });
+    }));
+    if (t.times) t.times.forEach((s, k) => g += `<text class="tp" x="${cx[k]}" y="${H - 6}" text-anchor="middle">${txt(s)}</text>`);
+    return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${txt(t.label)}: ${t.lat.map(c => c.map(v => lines(v).join(" ")).join(" / ")).join("; then ")}">${g}</svg>`;
+  };
   return fig.map(t => {
+    if (t.lat) return latSVG(t);
     const n = t.outs.length, gap = n > 2 ? 30 : 46, top = 34;
     const x1 = Math.max(40, 12 + 8.5*len(t.now)), x2 = x1 + 56;
     const wide = Math.max(...t.outs.map((v, i) => 8.4*len(v) + (t.probs ? 6.6*(len(t.probs[i]) + 2) + 6 : 0)));
