@@ -50,6 +50,9 @@
   .qfig .tl{font-weight:600}
   .qfig .tp{fill:var(--muted); font-size:13px}
   .qfig line, .qfig polygon{stroke:var(--accent); fill:var(--accent)}
+  .qfig circle{fill:var(--accent)}
+  .qfig line.off{stroke:var(--muted); opacity:.35}
+  .qfig circle.off{fill:var(--muted); opacity:.45}
   .ask{margin-top:14px; font-weight:600}
   .row{display:flex; gap:9px; margin-top:14px; flex-wrap:wrap}
   input[type=text]{
@@ -74,6 +77,9 @@
   .steps{margin-top:11px; font-size:.92rem}
   .steps div{padding:5px 0; border-bottom:1px dashed var(--line)}
   .steps div:last-child{border-bottom:none; font-weight:600}
+  .steps table.eqs{border-collapse:collapse; margin:2px 0}
+  .steps table.eqs td{padding:0; vertical-align:top}
+  .steps table.eqs td:first-child{text-align:right; padding-right:.3em}
   code{
     font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.88em;
     background:var(--bg); padding:1px 5px; border-radius:4px; border:1px solid var(--line);
@@ -539,7 +545,8 @@ const TEMPLATES = [{ id:"rp1", topic:"rep", name:"The replicating share position
   }},
 
 { id:"z1", topic:"zeros", also:["rep"], name:"Replicating a claim with two zeros", gen(){ return atLeast3(()=>{
-    /* HW_06 Q1(a) and the note's portfolio approach: n_short + Vu n_long = 1, n_short + Vd n_long = 0.
+    /* 23 Oct 2026 (Anh): each "Approach N" is its own heading step; the proof sheet restarts the step numbers under it.
+       HW_06 Q1(a) and the note's portfolio approach: n_short + Vu n_long = 1, n_short + Vd n_long = 0.
        Asked for n_long, the 1-year zeros; the claim pays $1 in the up or the down state.                  */
     let z, upClaim, correct, cands;
     do {
@@ -606,15 +613,17 @@ const TEMPLATES = [{ id:"rp1", topic:"rep", name:"The replicating share position
       correct,
       cands,
       steps:[
-        `<b>Approach 1: the replicating portfolio.</b> Hold n<sub>short</sub> 0.5-year zeros and n<sub>long</sub> 1-year zeros. At time 0.5 each 0.5-year zero pays \$1 and each 1-year zero is worth that state's value. The portfolio must pay what the claim pays in each state:`,
+        `<b>Approach 1: the replicating portfolio</b>`,
+        `Hold n<sub>short</sub> 0.5-year zeros and n<sub>long</sub> 1-year zeros. At time 0.5 each 0.5-year zero pays \$1 and each 1-year zero is worth that state's value. The portfolio must pay what the claim pays in each state:`,
         `Up state: n<sub>short</sub> &times; \$1 + n<sub>long</sub> &times; ${z.Vu.toFixed(3)} = ${money(cu)}<br>Down state: n<sub>short</sub> &times; \$1 + n<sub>long</sub> &times; ${z.Vd.toFixed(3)} = ${money(cd)}`,
         `Subtracting the down-state equation from the up-state equation removes n<sub>short</sub>: n<sub>long</sub> &times; (${z.Vu.toFixed(3)} &minus; ${z.Vd.toFixed(3)}) = ${money(cu)} &minus; ${money(cd)}, so n<sub>long</sub> = ${snum(cu-cd,0)} / ${snum(z.Vu-z.Vd,3)} = ${snum(nL,4)}`,
         `From the down-state equation: n<sub>short</sub> = ${money(cd)} &minus; ${z.Vd.toFixed(3)} &times; ${par(nL)} = ${snum(nS,4)}`,
         `Cost today = n<sub>short</sub> &times; ${z.P05.toFixed(3)} + n<sub>long</sub> &times; ${z.P1.toFixed(4)} = ${par(nS)} &times; ${z.P05.toFixed(3)} + ${par(nL)} &times; ${z.P1.toFixed(4)} = <b>${money(correct)}</b>. By no-arbitrage the claim is worth what the portfolio costs.`,
-        `<b>Approach 2: risk-neutral probabilities.</b> (a) The discount factor for time 0.5 is the price of the 0.5-year zero, which pays \$1 for sure: d<sub>0.5</sub> = ${z.P05.toFixed(3)}. (Equivalently, 1 + r = 1 / ${z.P05.toFixed(3)}, so r = ${pctS(gr-1,4)} over the six months.)`,
-        `(b) The risk-neutral pricing equation says that the value of any security must be its risk-neutral expected payoff, discounted at the risk-free rate: Price = d<sub>0.5</sub> &times; [q &times; CF<sub>u</sub> + (1&minus;q) &times; CF<sub>d</sub>]. Applying this to the 1-year zero: ${z.P1.toFixed(4)} = ${z.P05.toFixed(3)} &times; [q &times; ${z.Vu.toFixed(3)} + (1&minus;q) &times; ${z.Vd.toFixed(3)}] = ${z.P05.toFixed(3)} &times; [${z.Vd.toFixed(3)} &minus; q &times; (${z.Vd.toFixed(3)} &minus; ${z.Vu.toFixed(3)})]`,
+        `<b>Approach 2: risk-neutral probabilities</b>`,
+        `The discount factor for time 0.5 is the price of the 0.5-year zero, which pays \$1 for sure: d<sub>0.5</sub> = ${z.P05.toFixed(3)}. (Equivalently, 1 + r = 1 / ${z.P05.toFixed(3)}, so r = ${pctS(gr-1,4)} over the six months.)`,
+        `The risk-neutral pricing equation says that the value of any security must be its risk-neutral expected payoff, discounted at the risk-free rate: Price = d<sub>0.5</sub> &times; [q &times; CF<sub>u</sub> + (1&minus;q) &times; CF<sub>d</sub>]. Applying this to the 1-year zero: ${z.P1.toFixed(4)} = ${z.P05.toFixed(3)} &times; [q &times; ${z.Vu.toFixed(3)} + (1&minus;q) &times; ${z.Vd.toFixed(3)}] = ${z.P05.toFixed(3)} &times; [${z.Vd.toFixed(3)} &minus; q &times; (${z.Vd.toFixed(3)} &minus; ${z.Vu.toFixed(3)})]`,
         `Multiplying out: ${z.P1.toFixed(4)} = ${a0.toFixed(6)} &minus; q &times; ${a1.toFixed(6)}, so q = (${a0.toFixed(6)} &minus; ${z.P1.toFixed(4)}) / ${a1.toFixed(6)} = ${qd.toFixed(6)}`,
-        `(c) Applying the same equation to the claim: Price = d<sub>0.5</sub> &times; [q &times; CF<sub>u</sub> + (1&minus;q) &times; CF<sub>d</sub>] = ${z.P05.toFixed(3)} &times; [${qd.toFixed(6)} &times; ${money(cu)} + ${(1-qd).toFixed(6)} &times; ${money(cd)}] = <b>${money(correct)}</b>`,
+        `Applying the same equation to the claim: Price = d<sub>0.5</sub> &times; [q &times; CF<sub>u</sub> + (1&minus;q) &times; CF<sub>d</sub>] = ${z.P05.toFixed(3)} &times; [${qd.toFixed(6)} &times; ${money(cu)} + ${(1-qd).toFixed(6)} &times; ${money(cd)}] = <b>${money(correct)}</b>`,
         `Both approaches give the same price: the risk-neutral probability is a short cut for the replicating portfolio.`
       ]};
   }},
@@ -882,10 +891,12 @@ const TEMPLATES = [{ id:"rp1", topic:"rep", name:"The replicating share position
       correct,
       cands,
       steps:[
-        `<b>Approach 1: both bets together.</b> Holding both bets pays \$100 in six months whoever wins: a risk-free zero with \$100 face`,
+        `<b>Approach 1: both bets together</b>`,
+        `Holding both bets pays \$100 in six months whoever wins: a risk-free zero with \$100 face`,
         `So the two bets cost 100/(1 + ${r.toFixed(2)}%/2) = ${(100/(1+r/200)).toFixed(4)} together`,
         `Bet on ${c.b} = ${(100/(1+r/200)).toFixed(4)} &minus; ${PA} = <b>${money(correct)}</b>`,
-        `<b>Approach 2: the risk-neutral probability.</b> The risk-neutral pricing equation says that the value of any security must be its risk-neutral expected payoff, discounted at the risk-free rate.`,
+        `<b>Approach 2: the risk-neutral probability</b>`,
+        `The risk-neutral pricing equation says that the value of any security must be its risk-neutral expected payoff, discounted at the risk-free rate.`,
         `Applying this to the bet on ${c.a}, with q the risk-neutral probability that ${c.a} wins: ${money(PA)} = [q &times; \$100 + (1&minus;q) &times; \$0] / (1 + ${r.toFixed(2)}%/2)`,
         `Solving for q: q = ${PA} &times; ${(1+r/200).toFixed(4)} / 100 = ${q2.toFixed(6)}, so the risk-neutral probability that ${c.b} wins is 1 &minus; q = ${(1-q2).toFixed(6)}`,
         `Applying the same equation to the bet on ${c.b}: Price = [q &times; \$0 + (1&minus;q) &times; \$100] / (1 + ${r.toFixed(2)}%/2) = ${(1-q2).toFixed(6)} &times; 100 / ${(1+r/200).toFixed(4)} = <b>${money(correct)}</b>`,
@@ -1265,13 +1276,18 @@ function figHTML(fig){
     const W = Math.max(x - 44 + 4, 8.5*len(t.label) + 10);
     const yOf = (k, i) => top + h*(2*i + (L-1-k)) + (nl-1)*lh/2;
     const H = top + h*2*(L-1) + nl*lh + (t.times ? 26 : 6);
+    /* t.on (23 Oct 2026, Anh): the nodes the question works at, as "k,i". The rest of the tree is drawn
+       in grey, with a dot for a node that carries no figure, so students see where in the tree they are. */
+    const on = t.on ? new Set(t.on) : null, isOn = (k, i) => !on || on.has(k + "," + i);
+    const half = (k, i) => lines(t.lat[k][i]).join("") ? colW[k]/2 + 4 : 6;
     let g = `<text class="tl" x="${W/2}" y="14" text-anchor="middle">${txt(t.label)}</text>`;
     t.lat.forEach((col, k) => col.forEach((v, i) => {
       const y = yOf(k, i), ls = lines(v);
-      ls.forEach((s, j) => g += `<text x="${cx[k]}" y="${y + 5 + (j - (ls.length-1)/2)*lh}" text-anchor="middle">${s}</text>`);
+      if (ls.join("")) ls.forEach((s, j) => g += `<text x="${cx[k]}" y="${y + 5 + (j - (ls.length-1)/2)*lh}" text-anchor="middle">${s}</text>`);
+      else g += `<circle cx="${cx[k]}" cy="${y}" r="3.2"${isOn(k, i) ? "" : ` class="off"`}/>`;
       if (k < L-1) [i, i+1].forEach(c => {
         const y2 = yOf(k+1, c);
-        g += `<line x1="${cx[k] + colW[k]/2 + 4}" y1="${y}" x2="${cx[k+1] - colW[k+1]/2 - 4}" y2="${y2}" stroke-width="1.6"/>`;
+        g += `<line x1="${cx[k] + half(k, i)}" y1="${y}" x2="${cx[k+1] - half(k+1, c)}" y2="${y2}" stroke-width="1.6"${isOn(k, i) && isOn(k+1, c) ? "" : ` class="off"`}/>`;
       });
     }));
     if (t.times) t.times.forEach((s, k) => g += `<text class="tp" x="${cx[k]}" y="${H - 6}" text-anchor="middle">${txt(s)}</text>`);
