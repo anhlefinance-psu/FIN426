@@ -765,7 +765,10 @@ const CHOICE_TEMPLATES = [{ id:"k1", topic:"concept", name:"Why a frictionless m
     // one fault per step, each step the answer a quarter of the time. The volume-weighted average
     // (a second Step 3 fault) has its own template, e2 (Anh, 4 Oct 2026).
     const fault=pick(["signed","ratioOfAverages","sum","direction"]);
-    const at={signed:0, ratioOfAverages:1, sum:2, weighted:2, direction:3}[fault];
+    /* 26 Oct 2026 (Anh): the ratio-of-averages branch let Step 2 state the wrong rule and Step 3
+       carry it out, so a reader could defend either step. Now Step 2 only computes, correctly: each
+       day's ratio and the two column averages. Step 3 alone makes the mistake, dividing the averages.  */
+    const at={signed:0, ratioOfAverages:2, sum:2, weighted:2, direction:3}[fault];
     let rets, vols, daily, sgnd, total, right, avgR, avgV, shown, ind;
     /* Re-drawn (22 Sep 2026) so that the planted fault changes the figure the student arrives at:
        it has to stay positive and at least 5% away from the right one. The branch that averages
@@ -805,7 +808,7 @@ const CHOICE_TEMPLATES = [{ id:"k1", topic:"concept", name:"Why a frictionless m
         ? `<b>Step 1.</b> Amihud needs each day's return, sign and all: ${rets.map(r=>p1(r)+"%").join(", ")}, on volumes of \$${vols.join("m, \$")}m`
         : `<b>Step 1.</b> Amihud is built on the size of each move, so drop the sign: |return| ${rets.map(r=>Math.abs(r).toFixed(1)+"%").join(", ")}, on volumes of \$${vols.join("m, \$")}m`,
       fault==="ratioOfAverages"
-        ? `<b>Step 2.</b> Amihud is the average return over the average volume, so average each column: average |return| = (${rets.map(r=>Math.abs(r).toFixed(1)).join(" + ")}) / 3 = ${avgR.toFixed(1)}, average volume = (${vols.join(" + ")}) / 3 = ${avgV.toFixed(0)}`
+        ? `<b>Step 2.</b> One ratio per day, |return| / volume: ${daily.map((x,i)=>`day ${i+1}: ${Math.abs(rets[i]).toFixed(1)} / ${vols[i]} = ${p4(x)}`).join(" &nbsp;|&nbsp; ")}. Average |return| = (${rets.map(r=>Math.abs(r).toFixed(1)).join(" + ")}) / 3 = ${avgR.toFixed(1)}, average volume = (${vols.join(" + ")}) / 3 = ${avgV.toFixed(0)}`
         : `<b>Step 2.</b> One ratio per day, ${fault==="signed"?"return":"|return|"} / volume: ${(fault==="signed"?sgnd:daily).map((x,i)=>`day ${i+1}: ${fault==="signed"?p1(rets[i]):Math.abs(rets[i]).toFixed(1)} / ${vols[i]} = ${p4(x)}`).join(" &nbsp;|&nbsp; ")}`,
       fault==="ratioOfAverages"
         ? `<b>Step 3.</b> Amihud = average |return| / average volume = ${avgR.toFixed(1)} / ${avgV.toFixed(0)} = ${shown.toFixed(4)}`
@@ -824,12 +827,12 @@ const CHOICE_TEMPLATES = [{ id:"k1", topic:"concept", name:"Why a frictionless m
       `Step 1 is fine &mdash; Amihud is built on the size of each move, so the sign of the down day goes.`,
       fault==="signed"
         ? `Step 2 is fine on its own terms &mdash; one ratio per day, on the figures Step 1 handed it. The mistake is earlier.`
-        : `Step 2 is fine &mdash; Amihud works day by day: one ratio for each day.`,
+        : fault==="ratioOfAverages"
+          ? `Step 2 is fine &mdash; every figure in it is worked out correctly. Working out the two averages is not a mistake; using them in place of the daily ratios is.`
+          : `Step 2 is fine &mdash; Amihud works day by day: one ratio for each day.`,
       fault==="signed"
         ? `Step 3 is fine on its own terms &mdash; the measure is the average of the daily ratios, and that is what it averages. The mistake is earlier.`
-        : fault==="ratioOfAverages"
-          ? `Step 3 is fine on its own terms &mdash; it divides the two figures Step 2 produced, which is what Step 2 set up. The mistake is earlier.`
-          : `Step 3 is fine &mdash; the measure is the average of the daily ratios.`,
+        : `Step 3 is fine &mdash; the measure is the average of the daily ratios.`,
       `Step 4 is fine on its own terms &mdash; a higher Amihud number means a less liquid bond, and that is the conclusion it draws from the figure it was handed. The mistake is earlier.`
     ];
     const why={
