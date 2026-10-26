@@ -1289,7 +1289,8 @@ const TEMPLATES = [{ id:"s1", topic:"spread", name:"Spread when nothing is recov
             <b>${pctS(mu,0)} p.a.</b>, compounded continuously, and asset volatility of
             <b>${pctS(sig,0)} p.a.</b> It is deciding how much to borrow on a single debt issue
             maturing in <b>${T} year${T>1?"s":""}</b>.`,
-      ask:"What face value of debt would make its probability of default at that maturity exactly 50%? Answer in $ million.",
+      // hint added 26 Oct 2026 (Anh, from Lan's dry run of Quiz 3): students may not know N(0) = 0.5
+      ask:"What face value of debt would make its probability of default at that maturity exactly 50%? (Hint: N(0) = 0.5.) Answer in $ million.",
       correct,
       cands:[
         {val:V*Math.exp(mu*T), msg:`You used &mu; as the drift of log assets. It is &mu; &minus; &sigma;&sup2;/2. The gap is the whole of the variance term: at ${pctS(sig,0)} volatility that is ${pctS(sig*sig/2,2)} a year, and over ${T} year${T>1?"s":""} it is enough to move the answer from \$${correct.toFixed(2)} million to \$${(V*Math.exp(mu*T)).toFixed(2)} million.`},
@@ -2040,9 +2041,9 @@ const CHOICE_TEMPLATES = [{ id:"k1", topic:"concept", also:["spread"], name:"Why
        msg:`${N} &times; ${pctS(p,2)} = ${(N*p).toFixed(2)} of a loan is exactly the expected number of defaults, and an expectation does not have to be a number of defaults you could actually see. The most likely single outcome is indeed no defaults at all, with probability ${pctS(none,2)}, but that is the mode, not the mean.`}
     ]);
     return {mode:"choice",
-      text:`The note's bank writes <b>100,000</b> student loans of \$1 each to borrowers who default
-            independently with probability <b>${pctS(p,2)}</b> over the year and return nothing when
-            they do, and it is <b>pretty sure</b> it will lose ${pctS(p,2)} of the money it lent. A
+      text:`The note's bank writes <b>100,000</b> student loans of \$1 each. Each borrower has a one-year
+            default probability of <b>${pctS(p,2)}</b>, independently of the others, and returns nothing
+            on default. The bank is <b>pretty sure</b> it will lose ${pctS(p,2)} of the money it lent. A
             second lender writes just <b>${N}</b> loans of \$1 each on exactly the same terms: the same
             default probability, the same independence, nothing recovered.`,
       ask:"What is different about the small pool?",
